@@ -115,7 +115,7 @@ get_home(const HashCodeType hashcode, const size_t size);
 
 /// @brief  Get real bucket index.
 size_t
-get_probe(const size_t home, const size_t offset, const size_t size);
+get_real_index(const size_t home, const size_t offset, const size_t size);
 
 /// @brief  Get offset from home or where it would be if not found.
 ///         Return SIZE_MAX if no hole is found.

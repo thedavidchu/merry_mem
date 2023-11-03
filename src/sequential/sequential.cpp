@@ -90,7 +90,7 @@ get_home(const HashCodeType hashcode, const size_t size) {
 
 /// @brief  Get real bucket index.
 size_t
-get_probe(const size_t home, const size_t offset, const size_t size) {
+get_real_index(const size_t home, const size_t offset, const size_t size) {
   LOG_TRACE("Enter");
   return (home + offset) % size;
 }
@@ -104,7 +104,7 @@ get_wouldbe_offset(      std::vector<SequentialBucket> &tmp_buckets,
   size_t i = 0;
   size_t size = tmp_buckets.size();
   for (i = 0; i < size; ++i) {
-    size_t real_index = get_probe(home, i, tmp_buckets.size());
+    size_t real_index = get_real_index(home, i, tmp_buckets.size());
     SequentialBucket &bkt = tmp_buckets[real_index];
     // If not found
     if (bkt.is_empty()) {
@@ -136,14 +136,14 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
     switch (status) {
       case FOUND_MATCH: {
         LOG_DEBUG("FOUND_MATCH");
-        size_t real_index = get_probe(home, offset, tmp_buckets.size());
+        size_t real_index = get_real_index(home, offset, tmp_buckets.size());
         SequentialBucket &bkt = tmp_buckets[real_index];
         bkt.value = tmp.value;
         return 0;
       }
       case FOUND_SWAP: {
         LOG_DEBUG("FOUND_SWAP");
-        size_t real_index = get_probe(home, offset, tmp_buckets.size());
+        size_t real_index = get_real_index(home, offset, tmp_buckets.size());
         SequentialBucket &bkt = tmp_buckets[real_index];
         tmp.offset = offset;
         bkt.swap(tmp);
@@ -152,7 +152,7 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
       }
       case FOUND_HOLE: {
         LOG_DEBUG("FOUND_HOLE");
-        size_t real_index = get_probe(home, offset, tmp_buckets.size());
+        size_t real_index = get_real_index(home, offset, tmp_buckets.size());
         SequentialBucket &bkt = tmp_buckets[real_index];
         tmp.offset = offset;
         bkt.swap(tmp);
@@ -175,8 +175,6 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
 ////////////////////////////////////////////////////////////////////////////////
 /// HASH TABLE CLASS
 ////////////////////////////////////////////////////////////////////////////////
-
-
 
 int SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
   LOG_TRACE("Enter");
@@ -232,7 +230,7 @@ int SequentialRobinHoodHashTable::search(KeyType key, ValueType *value) {
   const auto [status, offset] = get_wouldbe_offset(this->buckets, key, hashcode, home);
   switch (status) {
     case FOUND_MATCH: {
-      size_t real_index = get_probe(home, offset, this->size);
+      size_t real_index = get_real_index(home, offset, this->size);
       SequentialBucket &bkt = this->buckets[real_index];
       *value = bkt.value;
       return 0;
@@ -255,7 +253,7 @@ int SequentialRobinHoodHashTable::remove(KeyType key) {
   const auto [status, offset] = get_wouldbe_offset(this->buckets, key, hashcode, home);
   switch (status) {
     case FOUND_MATCH: {
-        size_t real_index = get_probe(home, offset, this->size);
+        size_t real_index = get_real_index(home, offset, this->size);
         SequentialBucket tmp = SequentialBucket();
         SequentialBucket &bkt = this->buckets[real_index];
         bkt.swap(tmp);
@@ -272,4 +270,3 @@ int SequentialRobinHoodHashTable::remove(KeyType key) {
   }
   assert(0 && "unreachable");
 }
-
