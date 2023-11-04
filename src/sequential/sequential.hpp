@@ -85,6 +85,8 @@ struct SequentialBucket {
 
   bool is_empty();
 
+  void invalidate();
+
   void set(const KeyType key,
            const ValueType value,
            const HashCodeType hashcode,

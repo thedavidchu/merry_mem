@@ -1,3 +1,5 @@
+#include <algorithm>  // std::swap
+
 #include "sequential.hpp"
 
 
@@ -9,6 +11,17 @@ bool
 SequentialBucket::is_empty() {
   LOG_TRACE("Enter");
   return this->offset == SIZE_MAX;
+}
+
+void
+SequentialBucket::invalidate() {
+  LOG_TRACE("Enter");
+  // Not necessary
+  this->key = 0;
+  this->value = 0;
+  this->hashcode = 0;
+  // Necessary
+  this->offset = SIZE_MAX;
 }
 
 void
@@ -126,7 +139,7 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
                           const ValueType value,
                           const HashCodeType hashcode) {
   LOG_TRACE("Enter");
-  SequentialBucket tmp = SequentialBucket(key, value, hashcode, /*random value*/0);
+  SequentialBucket tmp = SequentialBucket(key, value, hashcode, /*arbitrary value*/0);
   // This could also be upper-bounded by the number of valid elements (num_elem)
   // in tmp_buckets. This is because you need to bump at most num_elem elements
   // (if they are all sitting in a row) to insert something.
@@ -253,12 +266,25 @@ int SequentialRobinHoodHashTable::remove(KeyType key) {
   const auto [status, offset] = get_wouldbe_offset(this->buckets, key, hashcode, home);
   switch (status) {
     case FOUND_MATCH: {
-        size_t real_index = get_real_index(home, offset, this->size);
-        SequentialBucket tmp = SequentialBucket();
+      for (size_t i = 0; i < this->size; ++i) {
+        // NOTE(dchu): real_index is the previous iteration's next_real_index
+        size_t real_index = get_real_index(home, offset + i, this->size);
         SequentialBucket &bkt = this->buckets[real_index];
-        bkt.swap(tmp);
-        this->remove(tmp.key);
-        return 0;
+        size_t next_real_index = get_real_index(home, offset + i + 1, this->size);
+        SequentialBucket &next_bkt = this->buckets[next_real_index];
+        // Next element is empty or already in its home bucket
+        if (next_bkt.is_empty() || next_bkt.offset == 0) {
+          bkt.invalidate();
+          --this->length;
+          return 0;
+        }
+        // I argue that this sliding is efficient if the average home has only a
+        // single element belonging to it. In this case, it would not have any
+        // elements belonging to the same home, over which it may leap-frog.
+        bkt = std::move(next_bkt);
+        --bkt.offset;
+      }
+      assert(0 && "impossible! Should have a hole");
     }
     // Not found
     case FOUND_HOLE:
