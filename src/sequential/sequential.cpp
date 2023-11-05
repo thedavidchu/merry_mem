@@ -220,9 +220,6 @@ SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
 std::optional<ValueType>
 SequentialRobinHoodHashTable::search(KeyType key) const {
   LOG_TRACE("Enter");
-  // TODO
-  // 1. Error check arguments
-  // 2. Check if key present
   HashCodeType hashcode = hash(key);
   size_t home = get_home(hashcode, this->size_);
 
