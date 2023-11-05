@@ -1,6 +1,6 @@
-/.idea/
-/.vs/
-/.vscode/
+.idea/
+.vs/
+.vscode/
 
 /build/
 /cmake-build-*/
