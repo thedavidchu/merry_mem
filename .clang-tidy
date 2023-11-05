@@ -1,0 +1,12 @@
+Checks:
+  *,
+  -altera*,
+  -llvm*,
+  -fuchsia-default-arguments-*,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -modernize-use-trailing-return-type,
+  -readability-magic-numbers,
+CheckOptions:
+  - { key: hicpp-signed-bitwise.IgnorePositiveIntegerLiterals, value: 1 }
+  - { key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic, value: 1 }
