@@ -3,24 +3,27 @@
 
 int main(int argc, char *argv[]) {
   LOG_TRACE("Enter");
-  SequentialRobinHoodHashTable a = SequentialRobinHoodHashTable();
+  SequentialRobinHoodHashTable a;
   // Insert
-  for (int32_t i = 0; i < 10; ++i) {
-    int r = a.insert(i, i);
-    std::cout << "Insert (" << r << "): <" << i << ", " << i << ">\n";
+  for (uint32_t i = 0; i < 10; ++i) {
+    ErrorType e = a.insert(i, i);
+    std::cout << "Insert (" << static_cast<int>(e) << "): <" << i << ", " << i << ">\n";
   }
 
   // Search
-  for (int32_t i = 0; i < 11; ++i) {
-    int32_t value = -1;
-    int r = a.search(i, &value);
-    std::cout << "Lookup (" << r << ") " << i << ": " << value << "\n";
+  for (uint32_t i = 0; i < 11; ++i) {
+    std::optional<ValueType> value = a.search(i);
+    if (value.has_value()) {
+      std::cout << "Lookup (" << value.has_value() << ") " << i << ": " << value.value() << "\n";
+    } else {
+      std::cout << "Lookup (" << value.has_value() << ") " << i << ": ?\n";
+    }
   }
 
   // Remove
-  for (int32_t i = 0; i < 11; ++i) {
-    int r = a.remove(i);
-    std::cout << "Remove (" << r << "): " << i << std::endl;
+  for (uint32_t i = 0; i < 11; ++i) {
+    ErrorType e = a.remove(i);
+    std::cout << "Remove (" << static_cast<int>(e) << "): " << i << std::endl;
     a.print();
   }
   std::cout << "Done!" << std::endl;

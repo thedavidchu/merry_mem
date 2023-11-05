@@ -8,7 +8,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-SequentialBucket::is_empty() {
+SequentialBucket::is_empty() const {
   LOG_TRACE("Enter");
   return this->offset == SIZE_MAX;
 }
@@ -24,50 +24,17 @@ SequentialBucket::invalidate() {
   this->offset = SIZE_MAX;
 }
 
-void
-SequentialBucket::set(const KeyType key,
-                      const ValueType value,
-                      const HashCodeType hashcode,
-                      const size_t offset) {
-  LOG_TRACE("Enter");
-  assert(this->is_empty() && "overwriting non-empty SequentialBucket");
-  this->key = key;
-  this->value = value;
-  this->hashcode = hashcode;
-  this->offset = offset;
-}
-
-void
-SequentialBucket::swap(SequentialBucket &other) {
-  LOG_TRACE("Enter");
-  KeyType tmp_key = this->key;
-  this->key = other.key;
-  other.key = tmp_key;
-
-  ValueType tmp_value = this->value;
-  this->value = other.value;
-  other.value = tmp_value;
-
-  HashCodeType tmp_hc = this->hashcode;
-  this->hashcode = other.hashcode;
-  other.hashcode = tmp_hc;
-
-  size_t tmp_offset = this->offset;
-  this->offset = other.offset;
-  other.offset = tmp_offset;
-}
-
 bool
-SequentialBucket::equal_key(const KeyType key, const HashCodeType hashcode) {
+SequentialBucket::equal_by_key(const KeyType key, const HashCodeType hashcode) const {
   LOG_TRACE("Enter");
-  assert(!this->is_empty() && "comparing to empty bucket!");
+  assert(!this->is_empty() && "should not compare to empty bucket!");
   // Assume equality between hashcodes is simpler (because it is fixed for any
   // type of key)
   return this->hashcode == hashcode && this->key == key;
 }
 
 void
-SequentialBucket::print(const size_t size) {
+SequentialBucket::print(const size_t size) const {
   if (this->is_empty()) {
     std::cout << "(empty)";
   } else {
@@ -91,13 +58,15 @@ hash(const KeyType key) {
   k = ((k >> 30) ^ k) * 0xbf58476d1ce4e5b9ULL;
   k = ((k >> 27) ^ k) * 0x94d049bb133111ebULL;
   k =  (k >> 31) ^ k;
-  return reinterpret_cast<HashCodeType>(k);
+  // We could theoretically use `reinterpret_cast` to ensure there is no
+  // overhead in this cast because HashCodeType is typedef'ed to size_t.
+  return static_cast<HashCodeType>(k);
 }
 
 size_t
 get_home(const HashCodeType hashcode, const size_t size) {
   LOG_TRACE("Enter");
-  size_t h = reinterpret_cast<HashCodeType>(hashcode);
+  size_t h = static_cast<size_t>(hashcode);
   return h % size;
 }
 
@@ -109,37 +78,40 @@ get_real_index(const size_t home, const size_t offset, const size_t size) {
 }
 
 std::pair<SearchStatus, size_t>
-get_wouldbe_offset(      std::vector<SequentialBucket> &tmp_buckets,
+get_wouldbe_offset(const std::vector<SequentialBucket> &buckets_buf,
                    const KeyType key,
                    const HashCodeType hashcode,
                    const size_t home) {
   LOG_TRACE("Enter");
   size_t i = 0;
-  size_t size = tmp_buckets.size();
+  size_t size = buckets_buf.size();
   for (i = 0; i < size; ++i) {
-    size_t real_index = get_real_index(home, i, tmp_buckets.size());
-    SequentialBucket &bkt = tmp_buckets[real_index];
+    size_t real_index = get_real_index(home, i, buckets_buf.size());
+    const SequentialBucket &bkt = buckets_buf[real_index];
     // If not found
     if (bkt.is_empty()) {
       // This is first, because equality on an empty bucket is not well defined.
-      return {FOUND_HOLE, i};
+      return {SearchStatus::found_hole, i};
     } else if (bkt.offset < i) { // This means that bkt belongs to a nearer home
-      return {FOUND_SWAP, i};
+      return {SearchStatus::found_swap, i};
     // If found
-    } else if (bkt.equal_key(key, hashcode)) {
-      return {FOUND_MATCH, i};
+    } else if (bkt.equal_by_key(key, hashcode)) {
+      return {SearchStatus::found_match, i};
     }
   }
-  return {FOUND_NOHOLE, SIZE_MAX};
+  return {SearchStatus::found_nohole, SIZE_MAX};
 }
 
-int
+ErrorType
 insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
-                          const KeyType key,
-                          const ValueType value,
-                          const HashCodeType hashcode) {
+                      const KeyType key,
+                      const ValueType value,
+                      const HashCodeType hashcode) {
   LOG_TRACE("Enter");
-  SequentialBucket tmp = SequentialBucket(key, value, hashcode, /*arbitrary value*/0);
+  SequentialBucket tmp = {.key = key,
+                          .value = value,
+                          .hashcode = hashcode,
+                          .offset = /*arbitrary value*/0,};
   // This could also be upper-bounded by the number of valid elements (num_elem)
   // in tmp_buckets. This is because you need to bump at most num_elem elements
   // (if they are all sitting in a row) to insert something.
@@ -147,41 +119,38 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
     size_t home = get_home(tmp.hashcode, tmp_buckets.size());
     const auto [status, offset] = get_wouldbe_offset(tmp_buckets, tmp.key, tmp.hashcode, home);
     switch (status) {
-      case FOUND_MATCH: {
-        LOG_DEBUG("FOUND_MATCH");
+      case SearchStatus::found_match: {
+        LOG_DEBUG("SearchStatus::found_match");
         size_t real_index = get_real_index(home, offset, tmp_buckets.size());
         SequentialBucket &bkt = tmp_buckets[real_index];
         bkt.value = tmp.value;
-        return 0;
+        return ErrorType::ok;
       }
-      case FOUND_SWAP: {
-        LOG_DEBUG("FOUND_SWAP");
+      case SearchStatus::found_swap: {
+        LOG_DEBUG("SearchStatus::found_swap");
+        // NOTE(dchu): could be buggy
         size_t real_index = get_real_index(home, offset, tmp_buckets.size());
         SequentialBucket &bkt = tmp_buckets[real_index];
         tmp.offset = offset;
-        bkt.swap(tmp);
-        // TODO(dchu): likely to be buggy
+        std::swap(bkt, tmp);
         continue;
       }
-      case FOUND_HOLE: {
-        LOG_DEBUG("FOUND_HOLE");
+      case SearchStatus::found_hole: {
+        LOG_DEBUG("SearchStatus::found_hole");
+        // NOTE(dchu): could be buggy
         size_t real_index = get_real_index(home, offset, tmp_buckets.size());
         SequentialBucket &bkt = tmp_buckets[real_index];
         tmp.offset = offset;
-        bkt.swap(tmp);
-        // TODO(dchu): likely to be buggy
-        return 0;
+        std::swap(bkt, tmp);
+        return ErrorType::ok;
       }
-      case FOUND_NOHOLE:
-        assert(0 && "no hole found!");
-        exit(1);
+      case SearchStatus::found_nohole:
+        assert(0 && "should not call this function if we need to resize!");
       default:
         assert(0 && "impossible!");
-        exit(1);
     }
   }
   assert(0 && "impossible!");
-  exit(1);
 }
 
 
@@ -189,7 +158,21 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
 /// HASH TABLE CLASS
 ////////////////////////////////////////////////////////////////////////////////
 
-int SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
+void
+SequentialRobinHoodHashTable::print() const {
+  LOG_TRACE("Enter");
+  std::cout << "(Length: " << this->length_ << "/Size: " << this->size_ << ") [\n";
+  for (size_t i = 0; i < this->size_; ++i) {
+    std::cout << "\t" << i << ": ";
+    const SequentialBucket &bkt = this->buckets_[i];
+    bkt.print(this->size_);
+    std::cout << ",\n";
+  }
+  std::cout << "]" << std::endl;
+}
+
+ErrorType
+SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
   LOG_TRACE("Enter");
   // TODO: ensure key and value are valid
   // 1. Error check arguments
@@ -197,86 +180,89 @@ int SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
   // 3.   If not, check if room to insert
   // 4.     If not, resize
   // 5. Insert (with swapping if necessary)
-  int r = 0;
   HashCodeType hashcode = hash(key);
-  size_t home = get_home(hashcode, this->size);
+  size_t home = get_home(hashcode, this->size_);
 
-  const auto [status, offset] = get_wouldbe_offset(this->buckets, key, hashcode, home);
+  const auto [status, offset] = get_wouldbe_offset(this->buckets_, key, hashcode, home);
   switch (status) {
-  case FOUND_MATCH:
-    LOG_DEBUG("FOUND_MATCH");
-    r = insert_without_resize(this->buckets, key, value, hashcode);
-    assert(!r && "error in insert_without_resize");
-    return r;
-  case FOUND_HOLE:
-    LOG_DEBUG("FOUND_HOLE");
-    r = insert_without_resize(this->buckets, key, value, hashcode);
-    assert(!r && "error in insert_without_resize");
-    ++this->length;
-    return r;
-  case FOUND_SWAP:
-  case FOUND_NOHOLE:
-    LOG_DEBUG("FOUND_{SWAP,NOHOLE}");
+  case SearchStatus::found_match: {
+    LOG_DEBUG("SearchStatus::found_match");
+    ErrorType e = insert_without_resize(this->buckets_, key, value, hashcode);
+    assert(e == ErrorType::ok && "error in insert_without_resize");
+    return e;
+  }
+  case SearchStatus::found_hole: {
+    LOG_DEBUG("SearchStatus::found_hole");
+    ErrorType e = insert_without_resize(this->buckets_, key, value, hashcode);
+    assert(e == ErrorType::ok && "error in insert_without_resize");
+    ++this->length_;
+    return e;
+  }
+  case SearchStatus::found_swap:
+  case SearchStatus::found_nohole: {
+    LOG_DEBUG("SearchStatus::FOUND_{SWAP,NOHOLE}");
     // Ensure suitably empty and there is at least one hole
-    if (this->length >= 0.9 * this->size || this->length + 1 >= this->size) {
-      int r = this->resize(2 * this->size);
-      assert(!r && "error in resize");
+    if (this->length_ >= 0.9 * this->size_ || this->length_ + 1 >= this->size_) {
+      ErrorType e = this->resize(2 * this->size_);
+      assert(e == ErrorType::ok && "error in resize");
     }
-    r = insert_without_resize(this->buckets, key, value, hashcode);
-    assert(!r && "error in insert_without_resize");
-    ++this->length;
-    return r;
+    ErrorType e = insert_without_resize(this->buckets_, key, value, hashcode);
+    assert(e == ErrorType::ok && "error in insert_without_resize");
+    ++this->length_;
+    return e;
+  }
   default:
     assert(0 && "impossible");
   }
   assert(0 && "unreachable");
 }
 
-int SequentialRobinHoodHashTable::search(KeyType key, ValueType *value) {
+std::optional<ValueType>
+SequentialRobinHoodHashTable::search(KeyType key) const {
   LOG_TRACE("Enter");
   // TODO
   // 1. Error check arguments
   // 2. Check if key present
   HashCodeType hashcode = hash(key);
-  size_t home = get_home(hashcode, this->size);
+  size_t home = get_home(hashcode, this->size_);
 
-  const auto [status, offset] = get_wouldbe_offset(this->buckets, key, hashcode, home);
+  const auto [status, offset] = get_wouldbe_offset(this->buckets_, key, hashcode, home);
   switch (status) {
-    case FOUND_MATCH: {
-      size_t real_index = get_real_index(home, offset, this->size);
-      SequentialBucket &bkt = this->buckets[real_index];
-      *value = bkt.value;
-      return 0;
+    case SearchStatus::found_match: {
+      size_t real_index = get_real_index(home, offset, this->size_);
+      const SequentialBucket &bkt = this->buckets_[real_index];
+      return bkt.value;
     }
-    case FOUND_HOLE:
-    case FOUND_NOHOLE:
-    case FOUND_SWAP:
-      return -1;
+    case SearchStatus::found_hole:
+    case SearchStatus::found_nohole:
+    case SearchStatus::found_swap:
+      return std::nullopt;
     default:
       assert(0 && "impossible");
   }
   assert(0 && "unreachable");
 }
 
-int SequentialRobinHoodHashTable::remove(KeyType key) {
+ErrorType
+SequentialRobinHoodHashTable::remove(KeyType key) {
   LOG_TRACE("Enter");
   HashCodeType hashcode = hash(key);
-  size_t home = get_home(hashcode, this->size);
+  size_t home = get_home(hashcode, this->size_);
 
-  const auto [status, offset] = get_wouldbe_offset(this->buckets, key, hashcode, home);
+  const auto [status, offset] = get_wouldbe_offset(this->buckets_, key, hashcode, home);
   switch (status) {
-    case FOUND_MATCH: {
-      for (size_t i = 0; i < this->size; ++i) {
+    case SearchStatus::found_match: {
+      for (size_t i = 0; i < this->size_; ++i) {
         // NOTE(dchu): real_index is the previous iteration's next_real_index
-        size_t real_index = get_real_index(home, offset + i, this->size);
-        SequentialBucket &bkt = this->buckets[real_index];
-        size_t next_real_index = get_real_index(home, offset + i + 1, this->size);
-        SequentialBucket &next_bkt = this->buckets[next_real_index];
+        size_t real_index = get_real_index(home, offset + i, this->size_);
+        SequentialBucket &bkt = this->buckets_[real_index];
+        size_t next_real_index = get_real_index(home, offset + i + 1, this->size_);
+        SequentialBucket &next_bkt = this->buckets_[next_real_index];
         // Next element is empty or already in its home bucket
         if (next_bkt.is_empty() || next_bkt.offset == 0) {
           bkt.invalidate();
-          --this->length;
-          return 0;
+          --this->length_;
+          return ErrorType::ok;
         }
         // I argue that this sliding is efficient if the average home has only a
         // single element belonging to it. In this case, it would not have any
@@ -287,12 +273,30 @@ int SequentialRobinHoodHashTable::remove(KeyType key) {
       assert(0 && "impossible! Should have a hole");
     }
     // Not found
-    case FOUND_HOLE:
-    case FOUND_NOHOLE:
-    case FOUND_SWAP:
-      return -1;
+    case SearchStatus::found_hole:
+    case SearchStatus::found_nohole:
+    case SearchStatus::found_swap:
+      return ErrorType::e_notfound;
     default:
       assert(0 && "impossible");
   }
   assert(0 && "unreachable");
 }
+
+ErrorType
+SequentialRobinHoodHashTable::resize(size_t new_size) {
+  LOG_TRACE("Enter");
+  std::vector<SequentialBucket> tmp_bkts;
+  tmp_bkts.resize(new_size);
+  assert(new_size >= this->length_ && "not enough room in new array!");
+  for (auto &bkt : this->buckets_) {
+    if (!bkt.is_empty()) {
+      ErrorType e = insert_without_resize(tmp_bkts, bkt.key, bkt.value, bkt.hashcode);
+      assert(e == ErrorType::ok && "should not have error in insert_without_resize");
+    }
+  }
+  this->buckets_ = tmp_bkts;
+  this->size_ = new_size;
+  return ErrorType::ok;
+}
+
