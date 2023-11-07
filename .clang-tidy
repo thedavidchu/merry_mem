@@ -1,5 +1,9 @@
 Checks:
+  # Enable all options by default so any new checks added in the future will be
+  # automatically enabled.
   *,
+  # Altera and LLVM checks seem to be intended for internal use. LLVM in
+  # particular wants to ensure everything is in the LLVM namespace.
   -altera*,
   -llvm*,
   -fuchsia-default-arguments-*,
