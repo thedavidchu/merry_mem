@@ -1,5 +1,19 @@
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
+# Set up vcpkg by default. This can be overridden on the command-line, or
+# edited after configuration.
+set(CMAKE_TOOLCHAIN_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/vendor/vcpkg/scripts/buildsystems/vcpkg.cmake"
+)
+set(VCPKG_BOOTSTRAP_OPTIONS "-disableMetrics")
+
+option(MM_BUILD_TEST
+    "Enable building unit tests." TRUE
+)
+if(MM_BUILD_TEST)
+    list(APPEND VCPKG_MANIFEST_FEATURES "test")
+endif()
+
 project(MerryMem
     VERSION 0.1.0
     LANGUAGES CXX
@@ -110,3 +124,7 @@ if(MM_USE_EXTRA_WARNINGS)
 endif()
 
 add_subdirectory(src)
+
+if(MM_BUILD_TEST)
+    add_subdirectory(test)
+endif()

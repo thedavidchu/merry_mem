@@ -1,0 +1,12 @@
+{
+  "name": "merry-mem",
+  "version-string": "0.1.0",
+  "features": {
+    "test": {
+      "description": "Libraries required for testing.",
+      "dependencies": [
+        "catch2"
+      ]
+    }
+  }
+}
