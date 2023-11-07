@@ -8,7 +8,6 @@ Checks:
   -modernize-use-trailing-return-type,
   -readability-magic-numbers,
 CheckOptions:
-  - { key: hicpp-signed-bitwise.IgnorePositiveIntegerLiterals, value: 1 }
   # This check applies to both classes and structs, which means POD types are
   # flagged. POD types generally have all members public, so this option
   # disables the check for them.
