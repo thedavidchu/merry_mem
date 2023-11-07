@@ -1,3 +1,4 @@
+# NOTE: We include header files to make them visible to IDEs.
 add_executable(sequential
     main.cpp
     sequential.cpp
