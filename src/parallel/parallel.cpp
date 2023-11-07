@@ -1,6 +1,5 @@
 #include "parallel.hpp"
 
-
 ////////////////////////////////////////////////////////////////////////////////
 /// THREAD MANAGER
 ////////////////////////////////////////////////////////////////////////////////
@@ -17,7 +16,6 @@ ThreadManager::speculate_index(size_t index)
     // TODO
 }
 
-
 bool
 ThreadManager::finish_speculate()
 {
@@ -30,7 +28,6 @@ ThreadManager::release_all_locks()
     // TODO
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 /// HASH TABLE
 ////////////////////////////////////////////////////////////////////////////////
@@ -42,13 +39,13 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
 }
 
 void
-ParallelRobinHoodHashTable::InsertOrUpdate(KeyType key, ValueType value)
+ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value)
 {
     // TODO
 }
 
 bool
-ParallelRobinHoodHashTable::delete(KeyType key, ValueType value)
+ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
 {
     // TODO
 }
@@ -60,7 +57,10 @@ ParallelRobinHoodHashTable::find(KeyType key)
 }
 
 std::pair<size_t, bool>
-ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager, size_t start_index, KeyType key, size_t &distance_key)
+ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
+                                                 size_t start_index,
+                                                 KeyType key,
+                                                 size_t &distance_key)
 {
     // TODO
 }
@@ -72,7 +72,10 @@ ParallelRobinHoodHashTable::get_thread_lock_manager()
 }
 
 std::pair<KeyType, ValueType>
-ParallelRobinHoodHashTable::compare_and_set_key_val(size_t index, KeyType prev_key, KeyType new_key, ValueType new_val)
+ParallelRobinHoodHashTable::compare_and_set_key_val(size_t index,
+                                                    KeyType prev_key,
+                                                    KeyType new_key,
+                                                    ValueType new_val)
 {
     // TODO
 }
@@ -84,7 +87,9 @@ ParallelRobinHoodHashTable::do_atomic_swap(ParallelBucket &swap_entry, size_t in
 }
 
 std::pair<bool, bool>
-ParallelRobinHoodHashTable::distance_zero_insert(KeyType key, ValueType value, size_t dist_zero_slot)
+ParallelRobinHoodHashTable::distance_zero_insert(KeyType key,
+                                                 ValueType value,
+                                                 size_t dist_zero_slot)
 {
     // TODO
 }

@@ -7,7 +7,6 @@
 #include <utility>
 #include <vector>
 
-
 ////////////////////////////////////////////////////////////////////////////////
 /// TYPE DEFINITIONS (for easy refactor)
 ////////////////////////////////////////////////////////////////////////////////
@@ -23,50 +22,83 @@ using ValueType = uint32_t;
 ///       'hash' (noun). Thus, I use 'hash code' to denote the latter.
 using HashCodeType = size_t;
 
-
 ////////////////////////////////////////////////////////////////////////////////
 /// LOGGING MACROS (not thread safe)
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Create my own sketchy logger
-#define LOG_LEVEL_TRACE   6
-#define LOG_LEVEL_DEBUG   5
-#define LOG_LEVEL_INFO    4
-#define LOG_LEVEL_WARN    3
-#define LOG_LEVEL_ERROR   2
-#define LOG_LEVEL_FATAL   1
-#define LOG_LEVEL_OFF     0
+#define LOG_LEVEL_TRACE 6
+#define LOG_LEVEL_DEBUG 5
+#define LOG_LEVEL_INFO  4
+#define LOG_LEVEL_WARN  3
+#define LOG_LEVEL_ERROR 2
+#define LOG_LEVEL_FATAL 1
+#define LOG_LEVEL_OFF   0
 
-#define LOG_LEVEL LOG_LEVEL_DEBUG
+#define LOG_LEVEL       LOG_LEVEL_DEBUG
 
-#define LOG_TRACE(x)  do { if (LOG_LEVEL >= LOG_LEVEL_TRACE)  { std::cout << "[TRACE]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_DEBUG(x)  do { if (LOG_LEVEL >= LOG_LEVEL_DEBUG)  { std::cout << "[DEBUG]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_INFO(x)   do { if (LOG_LEVEL >= LOG_LEVEL_INFO)   { std::cout << "[INFO]\t["  << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_WARN(x)   do { if (LOG_LEVEL >= LOG_LEVEL_WARN)   { std::cout << "[WARN]\t["  << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_ERROR(x)  do { if (LOG_LEVEL >= LOG_LEVEL_ERROR)  { std::cout << "[ERROR]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_FATAL(x)  do { if (LOG_LEVEL >= LOG_LEVEL_FATAL)  { std::cout << "[FATAL]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-
+#define LOG_TRACE(x)                                                                               \
+    do {                                                                                           \
+        if (LOG_LEVEL >= LOG_LEVEL_TRACE) {                                                        \
+            std::cout << "[TRACE]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__     \
+                      << "]\t" << x << std::endl;                                                  \
+        }                                                                                          \
+    } while (0)
+#define LOG_DEBUG(x)                                                                               \
+    do {                                                                                           \
+        if (LOG_LEVEL >= LOG_LEVEL_DEBUG) {                                                        \
+            std::cout << "[DEBUG]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__     \
+                      << "]\t" << x << std::endl;                                                  \
+        }                                                                                          \
+    } while (0)
+#define LOG_INFO(x)                                                                                \
+    do {                                                                                           \
+        if (LOG_LEVEL >= LOG_LEVEL_INFO) {                                                         \
+            std::cout << "[INFO]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__      \
+                      << "]\t" << x << std::endl;                                                  \
+        }                                                                                          \
+    } while (0)
+#define LOG_WARN(x)                                                                                \
+    do {                                                                                           \
+        if (LOG_LEVEL >= LOG_LEVEL_WARN) {                                                         \
+            std::cout << "[WARN]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__      \
+                      << "]\t" << x << std::endl;                                                  \
+        }                                                                                          \
+    } while (0)
+#define LOG_ERROR(x)                                                                               \
+    do {                                                                                           \
+        if (LOG_LEVEL >= LOG_LEVEL_ERROR) {                                                        \
+            std::cout << "[ERROR]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__     \
+                      << "]\t" << x << std::endl;                                                  \
+        }                                                                                          \
+    } while (0)
+#define LOG_FATAL(x)                                                                               \
+    do {                                                                                           \
+        if (LOG_LEVEL >= LOG_LEVEL_FATAL) {                                                        \
+            std::cout << "[FATAL]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__     \
+                      << "]\t" << x << std::endl;                                                  \
+        }                                                                                          \
+    } while (0)
 
 ////////////////////////////////////////////////////////////////////////////////
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
 
 enum class SearchStatus {
-  found_match,
-  found_swap,
-  found_hole,
-  found_nohole,
+    found_match,
+    found_swap,
+    found_hole,
+    found_nohole,
 };
 
 enum class ErrorType {
-  // We want !error to imply an ok status
-  ok = 0,
-  e_unknown,
-  e_oom,
-  e_notfound,
-  e_nohole,
+    // We want !error to imply an ok status
+    ok = 0,
+    e_unknown,
+    e_oom,
+    e_notfound,
+    e_nohole,
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 /// HELPER CLASSES
@@ -84,7 +116,7 @@ struct ParallelBucket {
 
 class ThreadManager {
 private:
-    ParallelRobinHoodHashTable &hash_table_;
+    class ParallelRobinHoodHashTable *hash_table_;
     std::vector<size_t> locked_indices_;
 
 public:
@@ -101,20 +133,20 @@ public:
     release_all_locks();
 };
 
-
 class ParallelRobinHoodHashTable {
 public:
     bool
     insert(KeyType key, ValueType value);
 
     void
-    InsertOrUpdate(KeyType key, ValueType value);
+    insert_or_update(KeyType key, ValueType value);
 
     bool
-    delete(KeyType key, ValueType value);
+    remove(KeyType key, ValueType value);
 
     std::pair<ValueType, bool>
     find(KeyType key);
+
 private:
     std::vector<ParallelBucket> buckets_;
     size_t length_;
@@ -125,7 +157,10 @@ private:
     /// HELPER FUNCTIONS
     ////////////////////////////////////////////////////////////////////////////
     std::pair<size_t, bool>
-    find_next_index_lock(ThreadManager &manager, size_t start_index, KeyType key, size_t &distance_key);
+    find_next_index_lock(ThreadManager &manager,
+                         size_t start_index,
+                         KeyType key,
+                         size_t &distance_key);
 
     ThreadManager &
     get_thread_lock_manager();
@@ -143,7 +178,7 @@ private:
     distance_zero_insert(KeyType key, ValueType value, size_t dist_zero_slot);
 
     bool
-    locked_insert(Bucket &entry_to_insert, size_t swap_index);
+    locked_insert(ParallelBucket &entry_to_insert, size_t swap_index);
 
     std::tuple<ValueType, bool, bool>
     find_speculate(KeyType key, size_t start_index);
