@@ -139,13 +139,6 @@ struct ParallelBucket {
     // we can fit this bucket into 4 words, which is more amenable to the hardware.
     // A value of SIZE_MAX would be attrocious for performance anyways.
     size_t offset = SIZE_MAX;
-    std::mutex mutex;
-
-    void
-    lock();
-
-    void
-    unlock();
 };
 
 class ThreadManager {
