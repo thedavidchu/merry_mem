@@ -143,9 +143,40 @@ ParallelRobinHoodHashTable::InsertOrUpdate(KeyType key, ValueType value)
 }
 
 bool
-ParallelRobinHoodHashTable::delete(KeyType key, ValueType value)
+ParallelRobinHoodHashTable::delete_element(KeyType key, ValueType value)
 {
     // TODO
+    ThreadManager manager = get_thread_lock_manager();
+    HashCodeType index = hash(key);
+    size_t offset = 0;
+    bool found;
+    ParallelBucket entry_to_delete = ParallelBucket(key, value, index, offset);
+    std::pair(index, found) = find_next_index_lock(manager, index, entry_to_delete.key, entry_to_delete.offset); //not sure if this is referenced correct?
+    
+    if (!found) {
+        manager.release_all_locks();
+        return false;
+    }
+
+    size_t next_index = index++;
+    manager.lock(next_index);
+    while(buckets_[next_index].offset > 0 ){
+        ParallelBucket entry_to_swap = do_atomic_swap(entry_to_delete, next_index); //idk pseduo code says fucking locked entry
+        buckets_[index] = entry_to_swap;
+        buckets_[index].offset--;
+        index = next_index;
+        next_index++;
+    }
+
+    KeyType empty_key = 0;
+    ValueType empty_value = 0;
+    HashCodeType empty_hashcode = 0;
+    size_t empty_offset = SIZE_MAX;
+
+    ParallelBucket empty_entry = ParallelBucket(empty_key, empty_value, empty_hashcode, empty_offset);
+    buckets_[index] = empty_entry;
+    manager.release_all_locks();
+    return true;
 }
 
 std::pair<ValueType, bool>

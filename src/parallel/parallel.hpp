@@ -113,7 +113,7 @@ public:
     InsertOrUpdate(KeyType key, ValueType value);
 
     bool
-    delete(KeyType key, ValueType value);
+    delete_element(KeyType key, ValueType value);
 
     std::pair<ValueType, bool>
     find(KeyType key);
