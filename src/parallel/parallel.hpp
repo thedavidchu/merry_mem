@@ -122,7 +122,10 @@ public:
     unlock();
 
 private:
-    std::mutex mutex_;
+    // Use a recursive mutex, which allows multiple lock operations by the same
+    // thread on the lock. However, if the number of locks exceeds an
+    // unspecified limit, then it will throw a std::system_error.
+    std::recursive_mutex mutex_;
     // Using () causes the linter to complain, thinking counter_ is a function.
     AtomicCounter counter_{0};
 };
