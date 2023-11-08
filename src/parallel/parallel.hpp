@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <iostream>
 #include <tuple>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -99,6 +100,31 @@ enum class ErrorType {
     e_nohole,
 };
 
+/// We want the AtomicCounter to allow for overflow. This means that we should
+/// not use ordering operators to allow for overflow. This also makes the
+/// assumption that the AtomicCounter will not be incremented until it overflows
+/// and reaches the formerly held value again.
+using AtomicCounter = std::atomic<unsigned>;
+
+class SegmentLock {
+public:
+    size_t
+    get_counter();
+
+    bool
+    is_locked();
+
+    void
+    lock();
+
+    void
+    unlock();
+
+private:
+    std::mutex mutex_;
+    AtomicCounter counter_ = 0;
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
@@ -111,29 +137,48 @@ struct ParallelBucket {
     // we can fit this bucket into 4 words, which is more amenable to the hardware.
     // A value of SIZE_MAX would be attrocious for performance anyways.
     size_t offset = SIZE_MAX;
+    std::mutex mutex;
+
+    void
+    lock();
+
+    void
+    unlock();
 };
 
 class ThreadManager {
-private:
-    class ParallelRobinHoodHashTable *hash_table_;
-    std::vector<size_t> locked_indices_;
-
 public:
+    /// Lock the segment corresponding to the index.
+    /// TODO(dchu): refactor to 'lock_segment'
     void
-    lock(size_t next_index);
+    lock(size_t index);
 
+    /// Release all segment locks.
+    /// TODO(dchu): refactor to 'unlock_all_segments'
     void
+    release_all_locks();
+
+    /// @brief Capture version numbers of an index
+    /// TODO(dchu): refactor to 'speculate'
+    bool
     speculate_index(size_t index);
 
     bool
     finish_speculate();
 
-    void
-    release_all_locks();
+private:
+    class ParallelRobinHoodHashTable *hash_table_;
+    std::vector<size_t> locked_segments_;
+    std::vector<std::pair<size_t, size_t>> segment_lock_index_and_count_;
+
+    size_t
+    get_segment_index(size_t index);
 };
 
 class ParallelRobinHoodHashTable {
 public:
+    friend class ThreadManager;
+
     bool
     insert(KeyType key, ValueType value);
 
@@ -148,6 +193,7 @@ public:
 
 private:
     std::vector<ParallelBucket> buckets_;
+    std::vector<SegmentLock> segment_locks_;
     size_t length_;
     size_t capacity_;
     size_t capacity_with_buffer_;
