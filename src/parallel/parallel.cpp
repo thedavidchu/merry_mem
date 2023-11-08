@@ -167,12 +167,10 @@ get_home(const HashCodeType hashcode, const size_t capacity) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-ParallelRobinHoodHashTable::insert(KeyType key, ValueType value, size_t)
+ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
 {
-    // TODO
     HashCodeType hashcode = hash(key);
-    bool is_inserted, key_exists, found; 
-    size_t home = get_home(hashcode, capacity_);
+    size_t home = get_home(hashcode, this->capacity_);
     auto [is_inserted, key_exists] = distance_zero_insert(key, value, home);
     if(is_inserted) {
         return true;
@@ -184,7 +182,6 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value, size_t)
 
     size_t offset = 0;
     ParallelBucket entry_to_swap = {.key = key, .value = value, .hashcode = hashcode, .offset = offset};
-    size_t next_index;
 
     auto [next_index, found] = find_next_index_lock(manager, home, key, offset);
 
@@ -203,31 +200,36 @@ ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value)
 {
     ThreadManager manager = get_thread_lock_manager();
     HashCodeType hashcode = hash(key);
-    size_t home = get_home(hashcode, capacity_);
+    size_t home = get_home(hashcode, this->capacity_);
     size_t idx = home;
 
     KeyType prev_key = key;
     ValueType prev_val = value;
-    bool is_inserted, is_found, found;
+    //bool is_inserted, is_found, found;
 
-    for(size_t distance = 0; buckets_[home].offset >= distance; ++distance, ++idx){
-        while(buckets_[idx].key == key) {
+    for(size_t distance = 0; this->buckets_[home].offset >= distance; ++distance, ++idx){
+        while(this->buckets_[idx].key == key) {
             KeyType prev_key_copy = prev_key;
             ValueType prev_val_copy = prev_val;
-            auto [prev_key, prev_val] = compare_and_set_key_val(home, prev_key_copy, buckets_[idx].key, prev_val_copy);
+            auto [prev_key, prev_val] = compare_and_set_key_val(home, prev_key_copy, this->buckets_[idx].key, prev_val_copy);
             if (prev_key == key) {
                 return;
             }
         }
     }
     auto [is_inserted, is_found] = distance_zero_insert(key, value, home);
+    if(is_inserted) {
+        return;
+    }
+    if(is_found) { //not sure about these?
+        return;
+    }
     size_t offset = 0;
     ParallelBucket entry_to_insert = {.key = key, .value = value, .hashcode = hashcode, .offset = offset}; //offset is arbitrary
-    size_t next_index;
     auto [next_index, found] = find_next_index_lock(manager, home, key, offset);
 
     if(found){
-        buckets_[next_index].value = value;
+        this->buckets_[next_index].value = value;
         manager.release_all_locks();
         return;
     }
@@ -330,7 +332,7 @@ ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_
     ThreadManager manager = get_thread_lock_manager(); 
     while(true) {
         ParallelBucket &swapped_entry = do_atomic_swap(entry_to_insert, swap_index);
-        if(swapped_entry.key == SIZE_MAX) { //size max is empty 
+        if(swapped_entry.offset == SIZE_MAX) { //size max is empty 
             return true;
         }
         size_t swap_index_copy = swap_index;
