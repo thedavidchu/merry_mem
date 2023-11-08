@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+class ParallelRobinHoodHashTable;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// TYPE DEFINITIONS (for easy refactor)
@@ -80,6 +81,7 @@ struct ParallelBucket {
     // we can fit this bucket into 4 words, which is more amenable to the hardware.
     // A value of SIZE_MAX would be attrocious for performance anyways.
     size_t offset = SIZE_MAX;
+    bool is_empty();
 };
 
 class ThreadManager {
@@ -143,7 +145,7 @@ private:
     distance_zero_insert(KeyType key, ValueType value, size_t dist_zero_slot);
 
     bool
-    locked_insert(Bucket &entry_to_insert, size_t swap_index);
+    locked_insert(ParallelBucket &entry_to_insert, size_t swap_index);
 
     std::tuple<ValueType, bool, bool>
     find_speculate(KeyType key, size_t start_index);
