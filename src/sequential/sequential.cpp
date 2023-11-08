@@ -34,11 +34,11 @@ SequentialBucket::equal_by_key(const KeyType key, const HashCodeType hashcode) c
 }
 
 void
-SequentialBucket::print(const size_t size) const {
+SequentialBucket::print(const size_t capacity) const {
   if (this->is_empty()) {
     std::cout << "(empty)";
   } else {
-    std::cout << "(" << this->hashcode << "=>" << this->hashcode % size <<
+    std::cout << "(" << this->hashcode << "=>" << this->hashcode % capacity <<
         "+" << this->offset << ") " << this->key << ": " << this->value;
   }
 }
@@ -64,17 +64,17 @@ hash(const KeyType key) {
 }
 
 size_t
-get_home(const HashCodeType hashcode, const size_t size) {
+get_home(const HashCodeType hashcode, const size_t capacity) {
   LOG_TRACE("Enter");
   size_t h = static_cast<size_t>(hashcode);
-  return h % size;
+  return h % capacity;
 }
 
 /// @brief  Get real bucket index.
 size_t
-get_real_index(const size_t home, const size_t offset, const size_t size) {
+get_real_index(const size_t home, const size_t offset, const size_t capacity) {
   LOG_TRACE("Enter");
-  return (home + offset) % size;
+  return (home + offset) % capacity;
 }
 
 std::pair<SearchStatus, size_t>
@@ -84,9 +84,9 @@ get_wouldbe_offset(const std::vector<SequentialBucket> &buckets_buf,
                    const size_t home) {
   LOG_TRACE("Enter");
   size_t i = 0;
-  size_t size = buckets_buf.size();
-  for (i = 0; i < size; ++i) {
-    size_t real_index = get_real_index(home, i, buckets_buf.size());
+  size_t capacity = buckets_buf.size();
+  for (i = 0; i < capacity; ++i) {
+    size_t real_index = get_real_index(home, i, capacity);
     const SequentialBucket &bkt = buckets_buf[real_index];
     // If not found
     if (bkt.is_empty()) {
@@ -112,16 +112,17 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
                           .value = value,
                           .hashcode = hashcode,
                           .offset = /*arbitrary value*/0,};
+  const size_t capacity = tmp_buckets.size();
   // This could also be upper-bounded by the number of valid elements (num_elem)
   // in tmp_buckets. This is because you need to bump at most num_elem elements
   // (if they are all sitting in a row) to insert something.
   while (true) {
-    size_t home = get_home(tmp.hashcode, tmp_buckets.size());
+    size_t home = get_home(tmp.hashcode, capacity);
     const auto [status, offset] = get_wouldbe_offset(tmp_buckets, tmp.key, tmp.hashcode, home);
     switch (status) {
       case SearchStatus::found_match: {
         LOG_DEBUG("SearchStatus::found_match");
-        size_t real_index = get_real_index(home, offset, tmp_buckets.size());
+        size_t real_index = get_real_index(home, offset, capacity);
         SequentialBucket &bkt = tmp_buckets[real_index];
         bkt.value = tmp.value;
         return ErrorType::ok;
@@ -129,7 +130,7 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
       case SearchStatus::found_swap: {
         LOG_DEBUG("SearchStatus::found_swap");
         // NOTE(dchu): could be buggy
-        size_t real_index = get_real_index(home, offset, tmp_buckets.size());
+        size_t real_index = get_real_index(home, offset, capacity);
         SequentialBucket &bkt = tmp_buckets[real_index];
         tmp.offset = offset;
         std::swap(bkt, tmp);
@@ -138,7 +139,7 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
       case SearchStatus::found_hole: {
         LOG_DEBUG("SearchStatus::found_hole");
         // NOTE(dchu): could be buggy
-        size_t real_index = get_real_index(home, offset, tmp_buckets.size());
+        size_t real_index = get_real_index(home, offset, capacity);
         SequentialBucket &bkt = tmp_buckets[real_index];
         tmp.offset = offset;
         std::swap(bkt, tmp);
@@ -161,11 +162,11 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
 void
 SequentialRobinHoodHashTable::print() const {
   LOG_TRACE("Enter");
-  std::cout << "(Length: " << this->length_ << "/Size: " << this->size_ << ") [\n";
-  for (size_t i = 0; i < this->size_; ++i) {
+  std::cout << "(Length: " << this->length_ << "/Capacity: " << this->capacity_ << ") [\n";
+  for (size_t i = 0; i < this->capacity_; ++i) {
     std::cout << "\t" << i << ": ";
     const SequentialBucket &bkt = this->buckets_[i];
-    bkt.print(this->size_);
+    bkt.print(this->capacity_);
     std::cout << ",\n";
   }
   std::cout << "]" << std::endl;
@@ -181,7 +182,7 @@ SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
   // 4.     If not, resize
   // 5. Insert (with swapping if necessary)
   HashCodeType hashcode = hash(key);
-  size_t home = get_home(hashcode, this->size_);
+  size_t home = get_home(hashcode, this->capacity_);
 
   const auto [status, offset] = get_wouldbe_offset(this->buckets_, key, hashcode, home);
   switch (status) {
@@ -202,8 +203,8 @@ SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
   case SearchStatus::found_nohole: {
     LOG_DEBUG("SearchStatus::FOUND_{SWAP,NOHOLE}");
     // Ensure suitably empty and there is at least one hole
-    if (this->length_ >= 0.9 * this->size_ || this->length_ + 1 >= this->size_) {
-      ErrorType e = this->resize(2 * this->size_);
+    if (this->length_ >= 0.9 * this->capacity_ || this->length_ + 1 >= this->capacity_) {
+      ErrorType e = this->resize(2 * this->capacity_);
       assert(e == ErrorType::ok && "error in resize");
     }
     ErrorType e = insert_without_resize(this->buckets_, key, value, hashcode);
@@ -221,12 +222,12 @@ std::optional<ValueType>
 SequentialRobinHoodHashTable::search(KeyType key) const {
   LOG_TRACE("Enter");
   HashCodeType hashcode = hash(key);
-  size_t home = get_home(hashcode, this->size_);
+  size_t home = get_home(hashcode, this->capacity_);
 
   const auto [status, offset] = get_wouldbe_offset(this->buckets_, key, hashcode, home);
   switch (status) {
     case SearchStatus::found_match: {
-      size_t real_index = get_real_index(home, offset, this->size_);
+      size_t real_index = get_real_index(home, offset, this->capacity_);
       const SequentialBucket &bkt = this->buckets_[real_index];
       return bkt.value;
     }
@@ -244,16 +245,16 @@ ErrorType
 SequentialRobinHoodHashTable::remove(KeyType key) {
   LOG_TRACE("Enter");
   HashCodeType hashcode = hash(key);
-  size_t home = get_home(hashcode, this->size_);
+  size_t home = get_home(hashcode, this->capacity_);
 
   const auto [status, offset] = get_wouldbe_offset(this->buckets_, key, hashcode, home);
   switch (status) {
     case SearchStatus::found_match: {
-      for (size_t i = 0; i < this->size_; ++i) {
+      for (size_t i = 0; i < this->capacity_; ++i) {
         // NOTE(dchu): real_index is the previous iteration's next_real_index
-        size_t real_index = get_real_index(home, offset + i, this->size_);
+        size_t real_index = get_real_index(home, offset + i, this->capacity_);
         SequentialBucket &bkt = this->buckets_[real_index];
-        size_t next_real_index = get_real_index(home, offset + i + 1, this->size_);
+        size_t next_real_index = get_real_index(home, offset + i + 1, this->capacity_);
         SequentialBucket &next_bkt = this->buckets_[next_real_index];
         // Next element is empty or already in its home bucket
         if (next_bkt.is_empty() || next_bkt.offset == 0) {
@@ -293,7 +294,7 @@ SequentialRobinHoodHashTable::resize(size_t new_size) {
     }
   }
   this->buckets_ = tmp_bkts;
-  this->size_ = new_size;
+  this->capacity_ = new_size;
   return ErrorType::ok;
 }
 

@@ -91,7 +91,7 @@ struct SequentialBucket {
   /// This prints in the format (using Python's f-string syntax):
   /// f"({hashcode}=>{home}+{offset}) {key}: {value}"
   void
-  print(const size_t size) const;
+  print(const size_t capacity) const;
 };
 
 
@@ -104,11 +104,11 @@ HashCodeType
 hash(const KeyType key);
 
 size_t
-get_home(const HashCodeType hashcode, const size_t size);
+get_home(const HashCodeType hashcode, const size_t capacity);
 
 /// @brief  Get real bucket index.
 size_t
-get_real_index(const size_t home, const size_t offset, const size_t size);
+get_real_index(const size_t home, const size_t offset, const size_t capacity);
 
 /// @brief  Get offset from home or where it would be if not found.
 ///         Return SIZE_MAX if no hole is found.
@@ -157,7 +157,7 @@ public:
 private:
   std::vector<SequentialBucket> buckets_ = {SequentialBucket()};
   size_t length_ = 0;
-  size_t size_ = 1;
+  size_t capacity_ = 1;
 
   ErrorType
   resize(size_t new_size);
