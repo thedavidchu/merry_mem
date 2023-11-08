@@ -191,7 +191,7 @@ public:
     insert_or_update(KeyType key, ValueType value, size_t capacity_ );
 
     bool
-    remove(KeyType key, ValueType value);
+    remove(KeyType key, ValueType value, size_t capacity_);
 
     std::pair<ValueType, bool>
     find(KeyType key);

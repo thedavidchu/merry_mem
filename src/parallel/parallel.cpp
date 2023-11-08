@@ -225,7 +225,7 @@ ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value, size_
     size_t offset = 0;
     ParallelBucket entry_to_insert = {.key = key, .value = value, .hashcode = hashcode, .offset = offset}; //offset is arbitrary
     size_t next_index;
-    auto [next_index, found] = find_next_index_lock(manager, idx, key, offset);
+    auto [next_index, found] = find_next_index_lock(manager, home, key, offset);
 
     if(found){
         buckets_[next_index].value = value;
@@ -239,9 +239,43 @@ ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value, size_
 }
 
 bool
-ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
+ParallelRobinHoodHashTable::remove(KeyType key, ValueType value, size_t capacity_)
 {
     // TODO
+    HashCodeType hashcode = hash(key);
+    size_t home = get_home(hashcode, capacity_);
+    ThreadManager manager = get_thread_lock_manager();
+    //declaring this is probs v stupid 
+    ParallelBucket entry_to_insert = {.key = key, .value = value, .hashcode = hashcode, .offset = 0}; //offset is arbitrary
+
+    auto[index, found] = find_next_index_lock(manager, home, key, entry_to_insert.offset);
+
+    if(!found) {
+        manager.release_all_locks();
+        return false;
+    }
+
+    size_t next_index = index++;
+    manager.lock(next_index);
+    size_t curr_index = index;
+
+    while(buckets_[next_index].offset > 0) {
+        entry_to_insert.lock(); //lock the entry to insert
+        ParallelBucket &entry_to_move = do_atomic_swap(entry_to_insert, next_index); //na this is fucked up 
+        buckets_[curr_index].key = entry_to_move.key;
+        buckets_[curr_index].value = entry_to_move.value;
+        buckets_[curr_index].hashcode = entry_to_move.hashcode;
+        buckets_[curr_index].offset = entry_to_move.offset--;
+        curr_index = next_index;
+        ++next_index;
+    }
+    ParallelBucket empty_entry; //does this do the default vals? 
+    buckets_[curr_index].key = empty_entry.key;
+    buckets_[curr_index].value = empty_entry.value;
+    buckets_[curr_index].hashcode = empty_entry.hashcode;
+    buckets_[curr_index].offset = empty_entry.offset;
+    manager.release_all_locks();
+    return true;
 }
 
 std::pair<ValueType, bool>
