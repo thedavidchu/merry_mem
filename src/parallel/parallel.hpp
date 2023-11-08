@@ -126,7 +126,7 @@ private:
     // thread on the lock. However, if the number of locks exceeds an
     // unspecified limit, then it will throw a std::system_error.
     std::recursive_mutex mutex_;
-    // Using () causes the linter to complain, thinking counter_ is a function.
+    // Using counter_(0) causes the linter to complain, thinking counter_ is a function.
     AtomicCounter counter_{0};
 };
 
