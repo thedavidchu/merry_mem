@@ -282,7 +282,33 @@ ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
 std::pair<ValueType, bool>
 ParallelRobinHoodHashTable::find(KeyType key)
 {
-    // TODO
+    HashCodeType hashcode = hash(key);
+    size_t home = get_home(hashcode, this->capacity_);
+    ParallelBucket &zero_distance_key_pair = atomic_load_key_index(home);
+
+    if(zero_distance_key_pair.key == key) {
+        return {zero_distance_key_pair.key, true};
+    }
+    if(zero_distance_key_pair.offset == 0) {
+        return {-1, false};
+    }
+    
+    size_t tries = 0;
+    //ValueType value_copy = 0;
+    while (tries < MAX_TRIES) {
+        tries++;
+        auto [value, found, speculative_success] = find_speculate(key, home);
+
+        if (speculative_success) {
+            return {value, found};
+        }
+    }
+    ParallelBucket &entry_to_find = {.key = key, .value = value_copy, .hashcode = hashcode, .offset = 0};
+    ThreadManager &manager = get_thread_lock_manager();
+    auto [index, found] = find_next_index_lock(manager, home, key, entry_to_find.offset);
+    ValueType value = this->buckets_[index].value;
+    manager.release_all_locks();
+    return {value, found};
 }
 
 std::pair<size_t, bool>
@@ -311,6 +337,12 @@ ParallelRobinHoodHashTable::compare_and_set_key_val(size_t index,
 
 ParallelBucket &
 ParallelRobinHoodHashTable::do_atomic_swap(ParallelBucket &swap_entry, size_t index)
+{
+    // TODO
+}
+
+ParallelBucket &
+ParallelRobinHoodHashTable::atomic_load_key_index(size_t index)
 {
     // TODO
 }
