@@ -123,7 +123,8 @@ public:
 
 private:
     std::mutex mutex_;
-    AtomicCounter counter_(0);
+    // Using () causes the linter to complain, thinking counter_ is a function.
+    AtomicCounter counter_{0};
 };
 
 ////////////////////////////////////////////////////////////////////////////////
