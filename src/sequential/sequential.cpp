@@ -203,7 +203,8 @@ SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
   case SearchStatus::found_nohole: {
     LOG_DEBUG("SearchStatus::FOUND_{SWAP,NOHOLE}");
     // Ensure suitably empty and there is at least one hole
-    if (this->length_ >= 0.9 * this->capacity_ || this->length_ + 1 >= this->capacity_) {
+    if (static_cast<double>(this->length_) >= 0.9 * static_cast<double>(this->capacity_) ||
+        this->length_ + 1 >= this->capacity_) {
       ErrorType e = this->resize(2 * this->capacity_);
       assert(e == ErrorType::ok && "error in resize");
     }
