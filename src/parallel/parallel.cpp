@@ -39,6 +39,34 @@ SegmentLock::unlock()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+/// STATIC HELPER FUNCTIONS
+////////////////////////////////////////////////////////////////////////////////
+
+HashCodeType
+hash(const KeyType key)
+{
+    LOG_TRACE("Enter");
+    size_t k = static_cast<size_t>(key);
+    // I use the suffix '*ULL' to denote that the literal is at least an int64.
+    // I've had weird bugs in the past to do with literal conversion. I'm not sure
+    // the details. I only remember it was a huge pain.
+    k = ((k >> 30) ^ k) * 0xbf58476d1ce4e5b9ULL;
+    k = ((k >> 27) ^ k) * 0x94d049bb133111ebULL;
+    k = (k >> 31) ^ k;
+    // We could theoretically use `reinterpret_cast` to ensure there is no
+    // overhead in this cast because HashCodeType is typedef'ed to size_t.
+    return static_cast<HashCodeType>(k);
+}
+
+size_t
+get_home(const HashCodeType hashcode, const size_t size)
+{
+    LOG_TRACE("Enter");
+    size_t h = static_cast<size_t>(hashcode);
+    return h % size;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 /// THREAD MANAGER
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -119,7 +147,18 @@ ThreadManager::get_segment_index(size_t index)
 bool
 ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
 {
-    // TODO
+
+    HashCodeType hashcode = hash(key);
+
+    size_t home = get_home(hashcode, this->capacity_);
+    std::cout << key << " hashes to " << home << std::endl;
+    const auto [inserted, key_exists] = this->distance_zero_insert(key, value, home);
+    if (inserted && key_exists) {
+        return true;
+    } else {
+        return false;
+    }
+    // TODO: Slow path
 }
 
 void
@@ -176,13 +215,16 @@ ParallelRobinHoodHashTable::get_thread_lock_manager()
     return this->thread_managers_.at(t_id);
 }
 
-std::pair<KeyType, ValueType>
+KeyValue
 ParallelRobinHoodHashTable::compare_and_set_key_val(size_t index,
-                                                    KeyType prev_key,
-                                                    KeyType new_key,
-                                                    ValueType new_val)
+                                                    KeyValue prev_kv,
+                                                    KeyValue new_kv)
 {
-    // TODO
+    if (this->buckets_[index].key_value.compare_exchange_strong(prev_kv, new_kv)) {
+        return prev_kv;
+    } else {
+        return new_kv;
+    }
 }
 
 ParallelBucket &
@@ -196,17 +238,24 @@ ParallelRobinHoodHashTable::distance_zero_insert(KeyType key,
                                                  ValueType value,
                                                  size_t dist_zero_slot)
 {
-    // TODO
+    bool key_exists = false;
+    bool inserted = false;
+    KeyValue blank_kv;
+    KeyValue new_kv = {key, value};
+    if (this->buckets_[dist_zero_slot].key_value.load().key == blank_kv.key) {
+        KeyValue insert_kv = compare_and_set_key_val(dist_zero_slot, blank_kv, new_kv);
+        if (insert_kv.key == 0) {
+            inserted = true;
+        }
+    }
+    if (this->buckets_[dist_zero_slot].key_value.load().key == key) {
+        key_exists = true;
+    }
+    return std::make_pair(inserted, key_exists);
 }
 
 bool
 ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_t swap_index)
-{
-    // TODO
-}
-
-std::tuple<ValueType, bool, bool>
-ParallelRobinHoodHashTable::find_speculate(KeyType key, size_t start_index)
 {
     // TODO
 }

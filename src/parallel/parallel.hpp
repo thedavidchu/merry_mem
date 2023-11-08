@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <atomic>
 
 ////////////////////////////////////////////////////////////////////////////////
 /// TYPE DEFINITIONS (for easy refactor)
@@ -139,9 +140,13 @@ private:
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
 
-struct ParallelBucket {
+struct KeyValue {
     KeyType key = 0;
     ValueType value = 0;
+};
+
+struct ParallelBucket {
+    std::atomic<KeyValue> key_value;
     HashCodeType hashcode = 0;
     // A value of SIZE_MAX means that the bucket is empty. I do this hack so that
     // we can fit this bucket into 4 words, which is more amenable to the hardware.
@@ -205,10 +210,10 @@ public:
     remove_thread_lock_manager();
 
 private:
-    std::vector<ParallelBucket> buckets_;
+    std::vector<ParallelBucket> buckets_ = std::vector<ParallelBucket>(1);
     std::vector<SegmentLock> segment_locks_;
-    size_t length_;
-    size_t capacity_;
+    size_t length_ = 0;
+    size_t capacity_ = 1;
     size_t capacity_with_buffer_;
     // N.B. this data structure within the hash table itself is necessary since
     //      we want a thread manager both (a) per thread and (b) per hash table.
@@ -226,8 +231,8 @@ private:
     ThreadManager &
     get_thread_lock_manager();
 
-    std::pair<KeyType, ValueType>
-    compare_and_set_key_val(size_t index, KeyType prev_key, KeyType new_key, ValueType new_val);
+    KeyValue
+    compare_and_set_key_val(size_t index, KeyValue prev_kv, KeyValue new_kv);
 
     ParallelBucket &
     do_atomic_swap(ParallelBucket &swap_entry, size_t index);
