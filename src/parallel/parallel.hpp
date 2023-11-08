@@ -123,7 +123,7 @@ public:
 
 private:
     std::mutex mutex_;
-    AtomicCounter counter_ = 0;
+    AtomicCounter counter_(0);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
