@@ -185,13 +185,13 @@ public:
     friend class ThreadManager;
 
     bool
-    insert(KeyType key, ValueType value, size_t capacity_);
+    insert(KeyType key, ValueType value);
 
     void
-    insert_or_update(KeyType key, ValueType value, size_t capacity_ );
+    insert_or_update(KeyType key, ValueType value);
 
     bool
-    remove(KeyType key, ValueType value, size_t capacity_);
+    remove(KeyType key, ValueType value);
 
     std::pair<ValueType, bool>
     find(KeyType key);

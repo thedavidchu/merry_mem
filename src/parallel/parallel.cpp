@@ -167,7 +167,7 @@ get_home(const HashCodeType hashcode, const size_t capacity) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-ParallelRobinHoodHashTable::insert(KeyType key, ValueType value, size_t capacity_)
+ParallelRobinHoodHashTable::insert(KeyType key, ValueType value, size_t)
 {
     // TODO
     HashCodeType hashcode = hash(key);
@@ -199,9 +199,8 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value, size_t capacity
 }
 
 void
-ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value, size_t capacity_)
+ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value)
 {
-    // TODO
     ThreadManager manager = get_thread_lock_manager();
     HashCodeType hashcode = hash(key);
     size_t home = get_home(hashcode, capacity_);
@@ -239,16 +238,14 @@ ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value, size_
 }
 
 bool
-ParallelRobinHoodHashTable::remove(KeyType key, ValueType value, size_t capacity_)
+ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
 {
-    // TODO
     HashCodeType hashcode = hash(key);
-    size_t home = get_home(hashcode, capacity_);
+    size_t home = get_home(hashcode, this->capacity_);
     ThreadManager manager = get_thread_lock_manager();
-    //declaring this is probs v stupid 
     ParallelBucket entry_to_insert = {.key = key, .value = value, .hashcode = hashcode, .offset = 0}; //offset is arbitrary
 
-    auto[index, found] = find_next_index_lock(manager, home, key, entry_to_insert.offset);
+    auto[index, found] = this->find_next_index_lock(manager, home, key, entry_to_insert.offset);
 
     if(!found) {
         manager.release_all_locks();
@@ -256,11 +253,11 @@ ParallelRobinHoodHashTable::remove(KeyType key, ValueType value, size_t capacity
     }
 
     size_t next_index = index++;
-    manager.lock(next_index);
     size_t curr_index = index;
-
-    while(buckets_[next_index].offset > 0) {
-        entry_to_insert.lock(); //lock the entry to insert
+    
+    manager.lock(curr_index);
+    while(buckets_[next_index].offset > 0 && !entry_to_insert.is_empty()) {
+        manager.lock(next_index); 
         ParallelBucket &entry_to_move = do_atomic_swap(entry_to_insert, next_index); //na this is fucked up 
         buckets_[curr_index].key = entry_to_move.key;
         buckets_[curr_index].value = entry_to_move.value;
@@ -269,6 +266,8 @@ ParallelRobinHoodHashTable::remove(KeyType key, ValueType value, size_t capacity
         curr_index = next_index;
         ++next_index;
     }
+    
+    entry_to_insert.unlock();
     ParallelBucket empty_entry; //does this do the default vals? 
     buckets_[curr_index].key = empty_entry.key;
     buckets_[curr_index].value = empty_entry.value;
