@@ -156,10 +156,10 @@ hash(const KeyType key) {
 }
 
 size_t
-get_home(const HashCodeType hashcode, const size_t size) {
+get_home(const HashCodeType hashcode, const size_t capacity) {
   LOG_TRACE("Enter");
   size_t h = static_cast<size_t>(hashcode);
-  return h % size;
+  return h % capacity;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -167,12 +167,13 @@ get_home(const HashCodeType hashcode, const size_t size) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
+ParallelRobinHoodHashTable::insert(KeyType key, ValueType value, size_t capacity_)
 {
     // TODO
-    HashCodeType index = hash(key);
+    HashCodeType hashcode = hash(key);
     bool is_inserted, key_exists, found; 
-    std::pair(is_inserted, key_exists) = distance_zero_insert(key, value, index);
+    size_t home = get_home(hashcode, capacity_);
+    auto [is_inserted, key_exists] = distance_zero_insert(key, value, home);
     if(is_inserted) {
         return true;
     }
@@ -182,10 +183,10 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
     ThreadManager manager = get_thread_lock_manager();
 
     size_t offset = 0;
-    ParallelBucket entry_to_swap = ParallelBucket(key, value, index, offset);
+    ParallelBucket entry_to_swap = {.key = key, .value = value, .hashcode = hashcode, .offset = offset};
     size_t next_index;
 
-    std::pair(next_index, found) = find_next_index_lock(manager, index, key, offset);
+    auto [next_index, found] = find_next_index_lock(manager, home, key, offset);
 
     if (found) {
         manager.release_all_locks();
@@ -198,33 +199,36 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
 }
 
 void
-ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value)
+ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value, size_t capacity_)
 {
     // TODO
     ThreadManager manager = get_thread_lock_manager();
-    HashCodeType index = hash(key);
-    HashCodeType idx = index;
+    HashCodeType hashcode = hash(key);
+    size_t home = get_home(hashcode, capacity_);
+    size_t idx = home;
 
     KeyType prev_key = key;
     ValueType prev_val = value;
     bool is_inserted, is_found, found;
 
-    for(size_t distance = 0; buckets_[index].offset >= distance; ++distance, ++index){
+    for(size_t distance = 0; buckets_[home].offset >= distance; ++distance, ++idx){
         while(buckets_[idx].key == key) {
-            std::pair(prev_key, prev_val) = compare_and_set_key_val(idx, prev_key, buckets_[idx].key, prev_val);
+            KeyType prev_key_copy = prev_key;
+            ValueType prev_val_copy = prev_val;
+            auto [prev_key, prev_val] = compare_and_set_key_val(home, prev_key_copy, buckets_[idx].key, prev_val_copy);
             if (prev_key == key) {
                 return;
             }
         }
     }
-    std::pair(is_inserted, is_found) = distance_zero_insert(key, value, index);
+    auto [is_inserted, is_found] = distance_zero_insert(key, value, home);
     size_t offset = 0;
-    ParallelBucket entry_to_insert = ParallelBucket(key, value, index, offset);
+    ParallelBucket entry_to_insert = {.key = key, .value = value, .hashcode = hashcode, .offset = offset}; //offset is arbitrary
     size_t next_index;
-    std::pair(next_index, found) = find_next_index_lock(manager, index, key, offset);
+    auto [next_index, found] = find_next_index_lock(manager, idx, key, offset);
 
     if(found){
-        buckets_[next_index] = entry_to_insert;
+        buckets_[next_index].value = value;
         manager.release_all_locks();
         return;
     }
@@ -288,14 +292,19 @@ bool
 ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_t swap_index)
 {
     // TODO
-    size_t swap_index = entry_to_insert.offset; //? i thnk its redoing it bc of possible contention but its locked so??
+    //size_t swap_index = entry_to_insert.offset; //? i thnk its redoing it bc of possible contention but its locked so??
+    
+    ThreadManager manager = get_thread_lock_manager(); 
     while(true) {
-        entry_to_insert = do_atomic_swap(entry_to_insert, swap_index);
-        if(entry_to_insert.key.is_empty()) { //idk wtf? not sure this makes sense
+        ParallelBucket &swapped_entry = do_atomic_swap(entry_to_insert, swap_index);
+        if(swapped_entry.key == SIZE_MAX) { //size max is empty 
             return true;
         }
-        swap_index = find_next_index_lock(manager, swap_index, entry_to_insert.key, entry_to_insert.offset);
+        size_t swap_index_copy = swap_index;
+        auto [swap_index, is_found] = find_next_index_lock(manager, swap_index_copy, entry_to_insert.key, entry_to_insert.offset);
     }
+
+    //add conditional check to check is found or not?
 }
 
 std::tuple<ValueType, bool, bool>

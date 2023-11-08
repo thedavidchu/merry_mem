@@ -134,7 +134,7 @@ private:
 struct ParallelBucket {
     KeyType key = 0;
     ValueType value = 0;
-    HashCodeType hashcode = 0;
+    HashCodeType hashcode = 0; //
     // A value of SIZE_MAX means that the bucket is empty. I do this hack so that
     // we can fit this bucket into 4 words, which is more amenable to the hardware.
     // A value of SIZE_MAX would be attrocious for performance anyways.
@@ -185,10 +185,10 @@ public:
     friend class ThreadManager;
 
     bool
-    insert(KeyType key, ValueType value);
+    insert(KeyType key, ValueType value, size_t capacity_);
 
     void
-    insert_or_update(KeyType key, ValueType value);
+    insert_or_update(KeyType key, ValueType value, size_t capacity_ );
 
     bool
     remove(KeyType key, ValueType value);
