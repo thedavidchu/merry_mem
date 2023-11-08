@@ -60,7 +60,7 @@ void
 ThreadManager::lock(size_t index)
 {
     size_t segment_index = this->get_segment_index(index);
-    this->hash_table_.segment_locks_[segment_index].lock();
+    this->hash_table_->segment_locks_[segment_index].lock();
     this->locked_segments_.push_back(segment_index);
 }
 
@@ -68,7 +68,7 @@ void
 ThreadManager::release_all_locks()
 {
     for (auto i : this->locked_segments_) {
-        this->hash_table_.segment_locks_[i].unlock();
+        this->hash_table_->segment_locks_[i].unlock();
     }
     this->locked_segments_.resize(0);
 }
@@ -77,7 +77,7 @@ bool
 ThreadManager::speculate_index(size_t index)
 {
     size_t segment_index = this->get_segment_index(index);
-    SegmentLock &segment_lock = this->hash_table_.segment_locks_[segment_index];
+    SegmentLock &segment_lock = this->hash_table_->segment_locks_[segment_index];
     // Perform the get_counter() and then the is_locked() functions in that
     // order to avoid a race condition. If the check for lockedness happens
     // before the lock count check, then another thread could lock and increment
@@ -104,7 +104,7 @@ bool
 ThreadManager::finish_speculate()
 {
     for (auto &[seg_idx, old_seg_cnt] : this->segment_lock_index_and_count_) {
-        size_t new_seg_cnt = this->hash_table_.segment_locks_[seg_idx].get_counter();
+        size_t new_seg_cnt = this->hash_table_->segment_locks_[seg_idx].get_counter();
         if (old_seg_cnt != new_seg_cnt) {
             this->segment_lock_index_and_count_.resize(0);
             this->locked_segments_.resize(0);
