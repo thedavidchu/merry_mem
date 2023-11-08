@@ -123,6 +123,45 @@ ThreadManager::get_segment_index(size_t index)
     return index / indices_per_segment;
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// PARALLEL BUCKET
+////////////////////////////////////////////////////////////////////////////////
+bool
+ParallelBucket::is_empty() 
+{
+    if (this->offset == SIZE_MAX) {
+        return true;
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// STATIC HELPER FUNCTIONS
+////////////////////////////////////////////////////////////////////////////////
+
+HashCodeType
+hash(const KeyType key) {
+  LOG_TRACE("Enter");
+  size_t k = static_cast<size_t>(key);
+  // I use the suffix '*ULL' to denote that the literal is at least an int64.
+  // I've had weird bugs in the past to do with literal conversion. I'm not sure
+  // the details. I only remember it was a huge pain.
+  k = ((k >> 30) ^ k) * 0xbf58476d1ce4e5b9ULL;
+  k = ((k >> 27) ^ k) * 0x94d049bb133111ebULL;
+  k =  (k >> 31) ^ k;
+  // We could theoretically use `reinterpret_cast` to ensure there is no
+  // overhead in this cast because HashCodeType is typedef'ed to size_t.
+  return static_cast<HashCodeType>(k);
+}
+
+size_t
+get_home(const HashCodeType hashcode, const size_t size) {
+  LOG_TRACE("Enter");
+  size_t h = static_cast<size_t>(hashcode);
+  return h % size;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// HASH TABLE
 ////////////////////////////////////////////////////////////////////////////////
@@ -131,12 +170,68 @@ bool
 ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
 {
     // TODO
+    HashCodeType index = hash(key);
+    bool is_inserted, key_exists, found; 
+    std::pair(is_inserted, key_exists) = distance_zero_insert(key, value, index);
+    if(is_inserted) {
+        return true;
+    }
+    if(key_exists) {
+        return false;
+    }
+    ThreadManager manager = get_thread_lock_manager();
+
+    size_t offset = 0;
+    ParallelBucket entry_to_swap = ParallelBucket(key, value, index, offset);
+    size_t next_index;
+
+    std::pair(next_index, found) = find_next_index_lock(manager, index, key, offset);
+
+    if (found) {
+        manager.release_all_locks();
+        return false;
+    }
+
+    locked_insert(entry_to_swap, next_index);
+    manager.release_all_locks();
+    return true;
 }
 
 void
 ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value)
 {
     // TODO
+    ThreadManager manager = get_thread_lock_manager();
+    HashCodeType index = hash(key);
+    HashCodeType idx = index;
+
+    KeyType prev_key = key;
+    ValueType prev_val = value;
+    bool is_inserted, is_found, found;
+
+    for(size_t distance = 0; buckets_[index].offset >= distance; ++distance, ++index){
+        while(buckets_[idx].key == key) {
+            std::pair(prev_key, prev_val) = compare_and_set_key_val(idx, prev_key, buckets_[idx].key, prev_val);
+            if (prev_key == key) {
+                return;
+            }
+        }
+    }
+    std::pair(is_inserted, is_found) = distance_zero_insert(key, value, index);
+    size_t offset = 0;
+    ParallelBucket entry_to_insert = ParallelBucket(key, value, index, offset);
+    size_t next_index;
+    std::pair(next_index, found) = find_next_index_lock(manager, index, key, offset);
+
+    if(found){
+        buckets_[next_index] = entry_to_insert;
+        manager.release_all_locks();
+        return;
+    }
+
+    locked_insert(entry_to_insert, next_index);
+    manager.release_all_locks();
+    return;
 }
 
 bool
@@ -193,10 +288,34 @@ bool
 ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_t swap_index)
 {
     // TODO
+    size_t swap_index = entry_to_insert.offset; //? i thnk its redoing it bc of possible contention but its locked so??
+    while(true) {
+        entry_to_insert = do_atomic_swap(entry_to_insert, swap_index);
+        if(entry_to_insert.key.is_empty()) { //idk wtf? not sure this makes sense
+            return true;
+        }
+        swap_index = find_next_index_lock(manager, swap_index, entry_to_insert.key, entry_to_insert.offset);
+    }
 }
 
 std::tuple<ValueType, bool, bool>
 ParallelRobinHoodHashTable::find_speculate(KeyType key, size_t start_index)
-{
-    // TODO
+{   
+    // TODO    
+    bool speculative_sucess = false;
+    bool found = false;
+    ValueType value = 0; 
+    size_t index = start_index;
+    ThreadManager manager = get_thread_lock_manager();
+
+    for(size_t distance = 0; buckets_[index].offset >= distance; ++distance, ++index){
+        manager.speculate_index(index);
+        if(buckets_[index].key == key){
+            value = buckets_[index].value;
+            found = true;
+            break;
+        }
+    }
+    speculative_sucess = manager.finish_speculate();
+    return std::make_tuple(value, found, speculative_sucess);
 }

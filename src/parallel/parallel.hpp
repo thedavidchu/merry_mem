@@ -140,6 +140,9 @@ struct ParallelBucket {
     // A value of SIZE_MAX would be attrocious for performance anyways.
     size_t offset = SIZE_MAX;
     std::mutex mutex;
+    
+    bool 
+    is_empty();
 
     void
     lock();
