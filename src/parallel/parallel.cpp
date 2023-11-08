@@ -160,7 +160,7 @@ ParallelRobinHoodHashTable::delete_element(KeyType key, ValueType value)
 
     size_t next_index = index++;
     manager.lock(next_index);
-    while(buckets_[next_index].offset > 0 ){
+    while(buckets_[next_index].offset > 0 ) {
         ParallelBucket entry_to_swap = do_atomic_swap(entry_to_delete, next_index); //idk pseduo code says fucking locked entry
         buckets_[index] = entry_to_swap;
         buckets_[index].offset--;
@@ -220,6 +220,7 @@ ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_
 {
     // TODO
     size_t swap_index = entry_to_insert.offset; //? i thnk its redoing it bc of possible contention but its locked so??
+    ThreadManager manager = get_thread_lock_manager();
     while(true) {
         entry_to_insert = do_atomic_swap(entry_to_insert, swap_index);
         if(entry_to_insert.key.is_empty()) { //idk wtf? not sure this makes sense
