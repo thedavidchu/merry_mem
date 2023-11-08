@@ -256,23 +256,23 @@ ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
     size_t curr_index = index;
     
     manager.lock(curr_index);
-    while(buckets_[next_index].offset > 0 && !entry_to_insert.is_empty()) {
+    while(this->buckets_[next_index].offset > 0 && !entry_to_insert.is_empty()) {
         manager.lock(next_index); 
         ParallelBucket &entry_to_move = do_atomic_swap(entry_to_insert, next_index); //na this is fucked up 
-        buckets_[curr_index].key = entry_to_move.key;
-        buckets_[curr_index].value = entry_to_move.value;
-        buckets_[curr_index].hashcode = entry_to_move.hashcode;
-        buckets_[curr_index].offset = entry_to_move.offset--;
+        this->buckets_[curr_index].key = entry_to_move.key;
+        this->buckets_[curr_index].value = entry_to_move.value;
+        this->buckets_[curr_index].hashcode = entry_to_move.hashcode;
+        this->buckets_[curr_index].offset = entry_to_move.offset--;
         curr_index = next_index;
         ++next_index;
     }
-    
+
     entry_to_insert.unlock();
     ParallelBucket empty_entry; //does this do the default vals? 
-    buckets_[curr_index].key = empty_entry.key;
-    buckets_[curr_index].value = empty_entry.value;
-    buckets_[curr_index].hashcode = empty_entry.hashcode;
-    buckets_[curr_index].offset = empty_entry.offset;
+    this->buckets_[curr_index].key = empty_entry.key;
+    this->buckets_[curr_index].value = empty_entry.value;
+    this->buckets_[curr_index].hashcode = empty_entry.hashcode;
+    this->buckets_[curr_index].offset = empty_entry.offset;
     manager.release_all_locks();
     return true;
 }
