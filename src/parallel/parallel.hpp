@@ -3,8 +3,10 @@
 #include <atomic>
 #include <cstdint>
 #include <iostream>
+#include <thread>
 #include <tuple>
 #include <mutex>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -149,6 +151,8 @@ struct ParallelBucket {
 
 class ThreadManager {
 public:
+    ThreadManager(class ParallelRobinHoodHashTable *const hash_table);
+
     /// Lock the segment corresponding to the index.
     /// TODO(dchu): refactor to 'lock_segment'
     void
@@ -168,7 +172,7 @@ public:
     finish_speculate();
 
 private:
-    class ParallelRobinHoodHashTable *hash_table_;
+    class ParallelRobinHoodHashTable *const hash_table_;
     std::vector<size_t> locked_segments_;
     std::vector<std::pair<size_t, size_t>> segment_lock_index_and_count_;
 
@@ -192,12 +196,21 @@ public:
     std::pair<ValueType, bool>
     find(KeyType key);
 
+    /// Call this when adding a new thread to work on the hash table.
+    void
+    add_thread_lock_manager();
+
+    /// Call this when removing a worker thread that worked on the hash table.
+    void
+    remove_thread_lock_manager();
+
 private:
     std::vector<ParallelBucket> buckets_;
     std::vector<SegmentLock> segment_locks_;
     size_t length_;
     size_t capacity_;
     size_t capacity_with_buffer_;
+    std::unordered_map<std::thread::id, ThreadManager> thread_managers_;
 
     ////////////////////////////////////////////////////////////////////////////
     /// HELPER FUNCTIONS

@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "parallel.hpp"
 
 constexpr unsigned indices_per_segment = 16;
@@ -39,6 +41,9 @@ SegmentLock::unlock()
 ////////////////////////////////////////////////////////////////////////////////
 /// THREAD MANAGER
 ////////////////////////////////////////////////////////////////////////////////
+
+ThreadManager::ThreadManager(class ParallelRobinHoodHashTable *const hash_table)
+    : this->hash_table_(hash_table) {}
 
 void
 ThreadManager::lock(size_t index)
@@ -135,6 +140,24 @@ ParallelRobinHoodHashTable::find(KeyType key)
     // TODO
 }
 
+void
+add_thread_lock_manager()
+{
+    std::thread::id t_id = std::this_thread::get_id();
+    assert(!this->thread_managers_.contains(t_id) &&
+           "thread manager for current thread already exists");
+    this->thread_managers_.emplace(t_id, ThreadManager(this));
+}
+
+void
+remove_thread_lock_manager()
+{
+    std::thread::id t_id = std::this_thread::get_id();
+    assert(this->thread_managers_.contains(t_id) &&
+           "thread manager for current thread DNE");
+    this->thread_managers_.erase(t_id);
+}
+
 std::pair<size_t, bool>
 ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
                                                  size_t start_index,
@@ -147,7 +170,10 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
 ThreadManager &
 ParallelRobinHoodHashTable::get_thread_lock_manager()
 {
-    // TODO
+    std::thread::id t_id = std::this_thread::get_id();
+    assert(this->thread_managers_.contains(t_id) &&
+           "thread manager for current thread DNE");
+    return this->thread_managers_.at(t_id);
 }
 
 std::pair<KeyType, ValueType>
