@@ -14,9 +14,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          style: llvm
+          style: file
+          # An empty string means "use the .clang-tidy file"
+          tidy-checks: ""
           lines-changed-only: false
-          files-changed-only: true
+          files-changed-only: false
 
       - name: Fail Fast?!
         if: steps.linter.outputs.checks-failed > 0
