@@ -210,6 +210,8 @@ private:
     size_t length_;
     size_t capacity_;
     size_t capacity_with_buffer_;
+    // N.B. this data structure within the hash table itself is necessary since
+    //      we want a thread manager both (a) per thread and (b) per hash table.
     std::unordered_map<std::thread::id, ThreadManager> thread_managers_;
 
     ////////////////////////////////////////////////////////////////////////////

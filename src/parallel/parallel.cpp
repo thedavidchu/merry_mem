@@ -42,8 +42,8 @@ SegmentLock::unlock()
 /// THREAD MANAGER
 ////////////////////////////////////////////////////////////////////////////////
 
-ThreadManager::ThreadManager(class ParallelRobinHoodHashTable *const hash_table)
-    : this->hash_table_(hash_table) {}
+ThreadManager::ThreadManager(ParallelRobinHoodHashTable *const hash_table)
+    : hash_table_(hash_table) {}
 
 void
 ThreadManager::lock(size_t index)
@@ -141,7 +141,7 @@ ParallelRobinHoodHashTable::find(KeyType key)
 }
 
 void
-add_thread_lock_manager()
+ParallelRobinHoodHashTable::add_thread_lock_manager()
 {
     std::thread::id t_id = std::this_thread::get_id();
     assert(!this->thread_managers_.contains(t_id) &&
