@@ -83,7 +83,7 @@ ThreadManager::speculate_index(size_t index)
     size_t segment_lock_count = segment_lock.get_counter();
     bool segment_locked = segment_lock.is_locked();
     if (!segment_locked) {
-        this->segment_lock_index_and_count_.push_back({segment_index, segment_lock_count});
+        this->segment_lock_index_and_count_.emplace_back(segment_index, segment_lock_count);
         return true;
     }
     return false;
