@@ -122,8 +122,14 @@ public:
     unlock();
 
 private:
-    std::mutex mutex_;
-    // Using () causes the linter to complain, thinking counter_ is a function.
+    // Use a recursive mutex, which allows multiple lock operations by the same
+    // thread on the lock. However, if the number of locks exceeds an
+    // unspecified limit, then it will throw a std::system_error.
+    std::recursive_mutex mutex_;
+    // N.B. Using counter_ = 0 causes the linter to complain that the copying
+    //      invokes a deleted constructor
+    // N.B. Using counter_(0) causes the linter to complain, thinking counter_
+    //      is a function.
     AtomicCounter counter_{0};
 };
 
@@ -139,13 +145,6 @@ struct ParallelBucket {
     // we can fit this bucket into 4 words, which is more amenable to the hardware.
     // A value of SIZE_MAX would be attrocious for performance anyways.
     size_t offset = SIZE_MAX;
-    std::mutex mutex;
-
-    void
-    lock();
-
-    void
-    unlock();
 };
 
 class ThreadManager {
