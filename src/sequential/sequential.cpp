@@ -83,9 +83,8 @@ get_wouldbe_offset(const std::vector<SequentialBucket> &buckets_buf,
                    const HashCodeType hashcode,
                    const size_t home) {
   LOG_TRACE("Enter");
-  size_t i = 0;
   size_t capacity = buckets_buf.size();
-  for (i = 0; i < capacity; ++i) {
+  for (size_t i = 0; i < capacity; ++i) {
     size_t real_index = get_real_index(home, i, capacity);
     const SequentialBucket &bkt = buckets_buf[real_index];
     // If not found
