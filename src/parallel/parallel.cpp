@@ -150,7 +150,7 @@ ParallelRobinHoodHashTable::add_thread_lock_manager()
 }
 
 void
-remove_thread_lock_manager()
+ParallelRobinHoodHashTable::remove_thread_lock_manager()
 {
     std::thread::id t_id = std::this_thread::get_id();
     assert(this->thread_managers_.contains(t_id) &&
