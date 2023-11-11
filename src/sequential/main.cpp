@@ -1,7 +1,10 @@
+#include <iostream>
+#include <optional>
+
 #include "sequential.hpp"
 
 
-int main(int argc, char *argv[]) {
+int main() {
   LOG_TRACE("Enter");
   SequentialRobinHoodHashTable a;
   // Insert
