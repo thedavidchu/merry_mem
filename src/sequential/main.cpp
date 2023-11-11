@@ -4,7 +4,7 @@
 #include "sequential.hpp"
 
 
-int main(void) {
+int main() {
   LOG_TRACE("Enter");
   SequentialRobinHoodHashTable a;
   // Insert
