@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "parallel.hpp"
 
 constexpr unsigned indices_per_segment = 16;
@@ -40,6 +42,9 @@ SegmentLock::unlock()
 /// THREAD MANAGER
 ////////////////////////////////////////////////////////////////////////////////
 
+ThreadManager::ThreadManager(ParallelRobinHoodHashTable *const hash_table)
+    : hash_table_(hash_table) {}
+
 void
 ThreadManager::lock(size_t index)
 {
@@ -78,7 +83,7 @@ ThreadManager::speculate_index(size_t index)
     size_t segment_lock_count = segment_lock.get_counter();
     bool segment_locked = segment_lock.is_locked();
     if (!segment_locked) {
-        this->segment_lock_index_and_count_.push_back({segment_index, segment_lock_count});
+        this->segment_lock_index_and_count_.emplace_back(segment_index, segment_lock_count);
         return true;
     }
     return false;
@@ -135,6 +140,24 @@ ParallelRobinHoodHashTable::find(KeyType key)
     // TODO
 }
 
+void
+ParallelRobinHoodHashTable::add_thread_lock_manager()
+{
+    std::thread::id t_id = std::this_thread::get_id();
+    assert(!this->thread_managers_.contains(t_id) &&
+           "thread manager for current thread already exists");
+    this->thread_managers_.emplace(t_id, ThreadManager(this));
+}
+
+void
+ParallelRobinHoodHashTable::remove_thread_lock_manager()
+{
+    std::thread::id t_id = std::this_thread::get_id();
+    assert(this->thread_managers_.contains(t_id) &&
+           "thread manager for current thread DNE");
+    this->thread_managers_.erase(t_id);
+}
+
 std::pair<size_t, bool>
 ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
                                                  size_t start_index,
@@ -147,7 +170,10 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
 ThreadManager &
 ParallelRobinHoodHashTable::get_thread_lock_manager()
 {
-    // TODO
+    std::thread::id t_id = std::this_thread::get_id();
+    assert(this->thread_managers_.contains(t_id) &&
+           "thread manager for current thread DNE");
+    return this->thread_managers_.at(t_id);
 }
 
 std::pair<KeyType, ValueType>
