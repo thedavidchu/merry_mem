@@ -75,7 +75,7 @@ struct KeyValue {
 /// This ensures we are guaranteed to use atomic operations (instead of locks).
 /// This for performance (to follow the algorithm's 'fast-path') rather than for
 /// correctness.
-static_assert(std::atomic<KeyValue>::is_always_lock_free)
+static_assert(std::atomic<KeyValue>::is_always_lock_free);
 
 struct ParallelBucket {
     std::atomic<KeyValue> key_value;
