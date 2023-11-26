@@ -7,65 +7,13 @@
 #include <utility>
 #include <vector>
 
-
-////////////////////////////////////////////////////////////////////////////////
-/// TYPE DEFINITIONS (for easy refactor)
-////////////////////////////////////////////////////////////////////////////////
-
-/// N.B.  I use uint32_t for the key and value so that they fit into a 64-bit
-///       word if I so choose to do that. This way, we can do atomic updates.
-///       The extra metadata is a bit of an oof though.
-/// N.B.  I do not use *_t because this is a reserved name in POSIX.
-/// N.B.  I also named them something unique so it's easy to find/replace.
-using KeyType = uint32_t;
-using ValueType = uint32_t;
-/// N.B.  I use 'HashCode' because I want to distinguish 'hash' (verb) and
-///       'hash' (noun). Thus, I use 'hash code' to denote the latter.
-using HashCodeType = size_t;
-
-
-////////////////////////////////////////////////////////////////////////////////
-/// LOGGING MACROS (not thread safe)
-////////////////////////////////////////////////////////////////////////////////
-
-/// Create my own sketchy logger
-#define LOG_LEVEL_TRACE   6
-#define LOG_LEVEL_DEBUG   5
-#define LOG_LEVEL_INFO    4
-#define LOG_LEVEL_WARN    3
-#define LOG_LEVEL_ERROR   2
-#define LOG_LEVEL_FATAL   1
-#define LOG_LEVEL_OFF     0
-
-#define LOG_LEVEL LOG_LEVEL_DEBUG
-
-#define LOG_TRACE(x)  do { if (LOG_LEVEL >= LOG_LEVEL_TRACE)  { std::cout << "[TRACE]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_DEBUG(x)  do { if (LOG_LEVEL >= LOG_LEVEL_DEBUG)  { std::cout << "[DEBUG]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_INFO(x)   do { if (LOG_LEVEL >= LOG_LEVEL_INFO)   { std::cout << "[INFO]\t["  << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_WARN(x)   do { if (LOG_LEVEL >= LOG_LEVEL_WARN)   { std::cout << "[WARN]\t["  << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_ERROR(x)  do { if (LOG_LEVEL >= LOG_LEVEL_ERROR)  { std::cout << "[ERROR]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-#define LOG_FATAL(x)  do { if (LOG_LEVEL >= LOG_LEVEL_FATAL)  { std::cout << "[FATAL]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__ << "]\t" << x << std::endl; } } while (0)
-
+#include "../common/logger.hpp"
+#include "../common/status.hpp"
+#include "../common/types.hpp"
 
 ////////////////////////////////////////////////////////////////////////////////
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
-
-enum class SearchStatus {
-  found_match,
-  found_swap,
-  found_hole,
-  found_nohole,
-};
-
-enum class ErrorType {
-  // We want !error to imply an ok status
-  ok = 0,
-  e_unknown,
-  e_oom,
-  e_notfound,
-  e_nohole,
-};
 
 /// @brief  Bucket for the Robin Hood hash table.
 struct SequentialBucket {

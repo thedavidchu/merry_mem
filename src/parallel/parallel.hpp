@@ -10,97 +10,22 @@
 #include <utility>
 #include <vector>
 
-////////////////////////////////////////////////////////////////////////////////
-/// TYPE DEFINITIONS (for easy refactor)
-////////////////////////////////////////////////////////////////////////////////
-
-/// N.B.  I use uint32_t for the key and value so that they fit into a 64-bit
-///       word if I so choose to do that. This way, we can do atomic updates.
-///       The extra metadata is a bit of an oof though.
-/// N.B.  I do not use *_t because this is a reserved name in POSIX.
-/// N.B.  I also named them something unique so it's easy to find/replace.
-using KeyType = uint32_t;
-using ValueType = uint32_t;
-/// N.B.  I use 'HashCode' because I want to distinguish 'hash' (verb) and
-///       'hash' (noun). Thus, I use 'hash code' to denote the latter.
-using HashCodeType = size_t;
-
-////////////////////////////////////////////////////////////////////////////////
-/// LOGGING MACROS (not thread safe)
-////////////////////////////////////////////////////////////////////////////////
-
-/// Create my own sketchy logger
-#define LOG_LEVEL_TRACE 6
-#define LOG_LEVEL_DEBUG 5
-#define LOG_LEVEL_INFO  4
-#define LOG_LEVEL_WARN  3
-#define LOG_LEVEL_ERROR 2
-#define LOG_LEVEL_FATAL 1
-#define LOG_LEVEL_OFF   0
-
-#define LOG_LEVEL       LOG_LEVEL_DEBUG
-
-#define LOG_TRACE(x)                                                                               \
-    do {                                                                                           \
-        if (LOG_LEVEL >= LOG_LEVEL_TRACE) {                                                        \
-            std::cout << "[TRACE]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__     \
-                      << "]\t" << x << std::endl;                                                  \
-        }                                                                                          \
-    } while (0)
-#define LOG_DEBUG(x)                                                                               \
-    do {                                                                                           \
-        if (LOG_LEVEL >= LOG_LEVEL_DEBUG) {                                                        \
-            std::cout << "[DEBUG]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__     \
-                      << "]\t" << x << std::endl;                                                  \
-        }                                                                                          \
-    } while (0)
-#define LOG_INFO(x)                                                                                \
-    do {                                                                                           \
-        if (LOG_LEVEL >= LOG_LEVEL_INFO) {                                                         \
-            std::cout << "[INFO]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__      \
-                      << "]\t" << x << std::endl;                                                  \
-        }                                                                                          \
-    } while (0)
-#define LOG_WARN(x)                                                                                \
-    do {                                                                                           \
-        if (LOG_LEVEL >= LOG_LEVEL_WARN) {                                                         \
-            std::cout << "[WARN]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__      \
-                      << "]\t" << x << std::endl;                                                  \
-        }                                                                                          \
-    } while (0)
-#define LOG_ERROR(x)                                                                               \
-    do {                                                                                           \
-        if (LOG_LEVEL >= LOG_LEVEL_ERROR) {                                                        \
-            std::cout << "[ERROR]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__     \
-                      << "]\t" << x << std::endl;                                                  \
-        }                                                                                          \
-    } while (0)
-#define LOG_FATAL(x)                                                                               \
-    do {                                                                                           \
-        if (LOG_LEVEL >= LOG_LEVEL_FATAL) {                                                        \
-            std::cout << "[FATAL]\t[" << __FILE__ << ":" << __LINE__ << "]\t[" << __FUNCTION__     \
-                      << "]\t" << x << std::endl;                                                  \
-        }                                                                                          \
-    } while (0)
+#include "../common/logger.hpp"
+#include "../common/status.hpp"
+#include "../common/types.hpp"
 
 ////////////////////////////////////////////////////////////////////////////////
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
 
-enum class SearchStatus {
-    found_match,
-    found_swap,
-    found_hole,
-    found_nohole,
-};
-
-enum class ErrorType {
-    // We want !error to imply an ok status
-    ok = 0,
-    e_unknown,
-    e_oom,
-    e_notfound,
-    e_nohole,
+enum class InsertStatus {
+    // Successful insertion
+    inserted_at_home,
+    updated_at_home,
+    inserted,
+    updated,
+    // Unsuccessful insertion
+    not_inserted,
 };
 
 /// We want the AtomicCounter to allow for overflow. This means that we should
@@ -139,10 +64,21 @@ private:
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
 
-struct ParallelBucket {
+/// We are assuming this will be packed into 8 (or 16... if we've changed the
+/// size of the KeyType/ValueType to int64_t) bytes so that we can atomically
+/// update both.
+struct KeyValue {
     KeyType key = 0;
     ValueType value = 0;
-    HashCodeType hashcode = 0;
+};
+
+/// This ensures we are guaranteed to use atomic operations (instead of locks).
+/// This for performance (to follow the algorithm's 'fast-path') rather than for
+/// correctness.
+static_assert(std::atomic<KeyValue>::is_always_lock_free);
+
+struct ParallelBucket {
+    std::atomic<KeyValue> key_value;
     // A value of SIZE_MAX means that the bucket is empty. I do this hack so that
     // we can fit this bucket into 4 words, which is more amenable to the hardware.
     // A value of SIZE_MAX would be attrocious for performance anyways.
@@ -205,11 +141,11 @@ public:
     remove_thread_lock_manager();
 
 private:
-    std::vector<ParallelBucket> buckets_;
+    std::vector<ParallelBucket> buckets_ = std::vector<ParallelBucket>(1024 + 10);
     std::vector<SegmentLock> segment_locks_;
-    size_t length_;
-    size_t capacity_;
-    size_t capacity_with_buffer_;
+    size_t length_ = 0;
+    size_t capacity_ = 1024;
+    size_t capacity_with_buffer_ = 1024 + 10;
     // N.B. this data structure within the hash table itself is necessary since
     //      we want a thread manager both (a) per thread and (b) per hash table.
     std::unordered_map<std::thread::id, ThreadManager> thread_managers_;
@@ -226,16 +162,23 @@ private:
     ThreadManager &
     get_thread_lock_manager();
 
-    std::pair<KeyType, ValueType>
-    compare_and_set_key_val(size_t index, KeyType prev_key, KeyType new_key, ValueType new_val);
+    bool
+    compare_and_set_key_val(size_t index, KeyValue prev_kv, KeyValue new_kv);
 
-    ParallelBucket &
+    ParallelBucket
     do_atomic_swap(ParallelBucket &swap_entry, size_t index);
 
     ////////////////////////////////////////////////////////////////////////////
     /// HELPER FUNCTIONS
     ////////////////////////////////////////////////////////////////////////////
-    std::pair<bool, bool>
+
+    /// @brief  Try to insert the key and value into the home bucket.
+    ///
+    /// @details    This assumes that the default-constructed key value is invalid.
+    ///             This also assumes that the offset is by default 0 and the hashcode
+    ///             can no longer be part of the data structure, because it cannot
+    ///             be updated along side the key-value pair atomically.
+    InsertStatus
     distance_zero_insert(KeyType key, ValueType value, size_t dist_zero_slot);
 
     bool
