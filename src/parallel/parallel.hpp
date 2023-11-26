@@ -28,15 +28,16 @@ enum class InsertStatus {
     not_inserted,
 };
 
-/// We want the AtomicCounter to allow for overflow. This means that we should
-/// not use ordering operators to allow for overflow. This also makes the
-/// assumption that the AtomicCounter will not be incremented until it overflows
-/// and reaches the formerly held value again.
-using AtomicCounter = std::atomic<unsigned>;
-
 class SegmentLock {
 public:
-    unsigned
+    /// We want the AtomicCounter to allow for overflow. This means that we should
+    /// not use ordering operators to allow for overflow. This also makes the
+    /// assumption that the AtomicCounter will not be incremented until it overflows
+    /// and reaches the formerly held value again.
+    using Version = size_t;
+    using AtomicVersion = std::atomic<Version>;
+
+    Version
     get_version();
 
     bool
@@ -59,7 +60,7 @@ private:
     //      function.
     // N.B. This needs to be atomic since it can be read from multiple threads
     //      via get_version() while its being modified by one thread.
-    AtomicCounter version_{0};
+    AtomicVersion version_{0};
     unsigned locked_count_{0};
 };
 

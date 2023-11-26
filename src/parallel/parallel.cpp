@@ -10,7 +10,7 @@ constexpr KeyType locked_bucket_key = static_cast<KeyType>(-2);
 /// SEGMENT LOCK
 ////////////////////////////////////////////////////////////////////////////////
 
-unsigned
+SegmentLock::Version
 SegmentLock::get_version()
 {
     return this->version_;
@@ -117,7 +117,7 @@ ThreadManager::speculate_index(size_t index)
     //                                  2. Increment lock count
     // 2. Get lock count
     // 3. Search for key...             3. Modify hash table...
-    size_t segment_lock_version = segment_lock.get_version();
+    SegmentLock::Version segment_lock_version = segment_lock.get_version();
     bool segment_locked = segment_lock.is_locked();
     if (!segment_locked) {
         this->segment_lock_index_and_version_.emplace_back(segment_index, segment_lock_version);
@@ -130,7 +130,7 @@ bool
 ThreadManager::finish_speculate()
 {
     for (auto &[seg_idx, old_seg_version] : this->segment_lock_index_and_version_) {
-        size_t new_seg_version = this->hash_table_->segment_locks_[seg_idx].get_version();
+        SegmentLock::Version new_seg_version = this->hash_table_->segment_locks_[seg_idx].get_version();
         if (old_seg_version != new_seg_version) {
             this->segment_lock_index_and_version_.clear();
             this->locked_segments_.clear();
