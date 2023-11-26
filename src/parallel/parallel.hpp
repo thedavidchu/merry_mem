@@ -61,6 +61,8 @@ private:
     // N.B. This needs to be atomic since it can be read from multiple threads
     //      via get_version() while its being modified by one thread.
     AtomicVersion version_{0};
+    // N.B. We use unsigned since locked_count_ is bounded by the number of
+    //      elements within a segment, assuming we only lock once per element.
     unsigned locked_count_{0};
 };
 
