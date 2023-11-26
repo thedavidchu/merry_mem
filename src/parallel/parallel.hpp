@@ -95,6 +95,16 @@ enum class SearchStatus {
     found_nohole,
 };
 
+enum class InsertStatus {
+    // Successful insertion
+    inserted_at_home,
+    updated_at_home,
+    inserted,
+    updated,
+    // Unsuccessful insertion
+    not_inserted,
+};
+
 enum class ErrorType {
     // We want !error to imply an ok status
     ok = 0,
@@ -147,7 +157,6 @@ struct KeyValue {
 
 struct ParallelBucket {
     std::atomic<KeyValue> key_value;
-    HashCodeType hashcode = 0;
     // A value of SIZE_MAX means that the bucket is empty. I do this hack so that
     // we can fit this bucket into 4 words, which is more amenable to the hardware.
     // A value of SIZE_MAX would be attrocious for performance anyways.
@@ -210,11 +219,11 @@ public:
     remove_thread_lock_manager();
 
 private:
-    std::vector<ParallelBucket> buckets_ = std::vector<ParallelBucket>(1);
+    std::vector<ParallelBucket> buckets_ = std::vector<ParallelBucket>(1024 + 10);
     std::vector<SegmentLock> segment_locks_;
     size_t length_ = 0;
-    size_t capacity_ = 1;
-    size_t capacity_with_buffer_;
+    size_t capacity_ = 1024;
+    size_t capacity_with_buffer_ = 1024 + 10;
     // N.B. this data structure within the hash table itself is necessary since
     //      we want a thread manager both (a) per thread and (b) per hash table.
     std::unordered_map<std::thread::id, ThreadManager> thread_managers_;
@@ -231,16 +240,23 @@ private:
     ThreadManager &
     get_thread_lock_manager();
 
-    KeyValue
+    bool
     compare_and_set_key_val(size_t index, KeyValue prev_kv, KeyValue new_kv);
 
-    ParallelBucket &
+    ParallelBucket
     do_atomic_swap(ParallelBucket &swap_entry, size_t index);
 
     ////////////////////////////////////////////////////////////////////////////
     /// HELPER FUNCTIONS
     ////////////////////////////////////////////////////////////////////////////
-    std::pair<bool, bool>
+
+    /// @brief  Try to insert the key and value into the home bucket.
+    ///
+    /// @details    This assumes that the default-constructed key value is invalid.
+    ///             This also assumes that the offset is by default 0 and the hashcode
+    ///             can no longer be part of the data structure, because it cannot
+    ///             be updated along side the key-value pair atomically.
+    InsertStatus
     distance_zero_insert(KeyType key, ValueType value, size_t dist_zero_slot);
 
     bool

@@ -147,18 +147,15 @@ ThreadManager::get_segment_index(size_t index)
 bool
 ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
 {
-
     HashCodeType hashcode = hash(key);
 
     size_t home = get_home(hashcode, this->capacity_);
-    std::cout << key << " hashes to " << home << std::endl;
+    LOG_DEBUG(key << " hashes to " << home);
     const auto [inserted, key_exists] = this->distance_zero_insert(key, value, home);
     if (inserted && key_exists) {
         return true;
-    } else {
-        return false;
     }
-    // TODO: Slow path
+    assert(0 && "TODO: slow path");
 }
 
 void
@@ -215,43 +212,41 @@ ParallelRobinHoodHashTable::get_thread_lock_manager()
     return this->thread_managers_.at(t_id);
 }
 
-KeyValue
+bool
 ParallelRobinHoodHashTable::compare_and_set_key_val(size_t index,
                                                     KeyValue prev_kv,
                                                     KeyValue new_kv)
 {
-    if (this->buckets_[index].key_value.compare_exchange_strong(prev_kv, new_kv)) {
-        return prev_kv;
-    } else {
-        return new_kv;
-    }
+    return this->buckets_[index].key_value.compare_exchange_strong(prev_kv, new_kv);
 }
 
-ParallelBucket &
+ParallelBucket
 ParallelRobinHoodHashTable::do_atomic_swap(ParallelBucket &swap_entry, size_t index)
 {
     // TODO
 }
 
-std::pair<bool, bool>
+InsertStatus
 ParallelRobinHoodHashTable::distance_zero_insert(KeyType key,
                                                  ValueType value,
                                                  size_t dist_zero_slot)
 {
-    bool key_exists = false;
-    bool inserted = false;
     KeyValue blank_kv;
     KeyValue new_kv = {key, value};
-    if (this->buckets_[dist_zero_slot].key_value.load().key == blank_kv.key) {
-        KeyValue insert_kv = compare_and_set_key_val(dist_zero_slot, blank_kv, new_kv);
-        if (insert_kv.key == 0) {
-            inserted = true;
-        }
+    // Attempt fast-path insertion if the key-value pair is empty
+    if (this->buckets_[dist_zero_slot].key_value.load() == blank_kv) {
+        if (compare_and_set_key_val(dist_zero_slot, blank_kv, new_kv)) {
+            return InsertStatus::inserted_at_home;
+        };
     }
+    // Attempt fast-path update if key matches our key
     if (this->buckets_[dist_zero_slot].key_value.load().key == key) {
-        key_exists = true;
+        KeyValue old_kv = {key, this->buckets_[dist_zero_slot].key_value.load().value};
+        if (compare_and_set_key_val(dist_zero_slot, old_kv, new_kv)) {
+            return InsertStatus::updated_at_home;
+        };
     }
-    return std::make_pair(inserted, key_exists);
+    return InsertStatus::not_inserted;
 }
 
 bool
