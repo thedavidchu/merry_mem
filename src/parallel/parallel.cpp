@@ -229,11 +229,10 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
             // This is first, because equality on an empty bucket is not well defined.
             distance_key = offset;
             return {real_index, false};
-        } else if (offset < distance_key) { // This means that bkt belongs to a nearer home
+        } else if (offset < distance_key) {
             distance_key = offset;
             return {real_index, false};
-            // If found
-        } else if (pair.key == key) {
+        } else if (pair.key == key) { // If found
             return {real_index, true};
         }
     }

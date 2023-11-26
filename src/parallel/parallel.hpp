@@ -116,7 +116,7 @@ public:
 private:
     class ParallelRobinHoodHashTable *const hash_table_;
     std::vector<size_t> locked_segments_;
-    std::vector<std::pair<size_t, unsigned>> segment_lock_index_and_version_;
+    std::vector<std::pair<size_t, SegmentLock::Version>> segment_lock_index_and_version_;
 };
 
 size_t
