@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <atomic>
 
 ////////////////////////////////////////////////////////////////////////////////
 /// TYPE DEFINITIONS (for easy refactor)
@@ -150,10 +149,18 @@ private:
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
 
+/// We are assuming this will be packed into 8 (or 16... if we've changed the
+/// size of the KeyType/ValueType to int64_t) bytes so that we can atomically
+/// update both.
 struct KeyValue {
     KeyType key = 0;
     ValueType value = 0;
 };
+
+/// This ensures we are guaranteed to use atomic operations (instead of locks).
+/// This for performance (to follow the algorithm's 'fast-path') rather than for
+/// correctness.
+static_assert(std::atomic<KeyValue>::is_always_lock_free)
 
 struct ParallelBucket {
     std::atomic<KeyValue> key_value;
