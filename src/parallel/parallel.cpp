@@ -151,8 +151,9 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
 
     size_t home = get_home(hashcode, this->capacity_);
     LOG_DEBUG(key << " hashes to " << home);
-    const auto [inserted, key_exists] = this->distance_zero_insert(key, value, home);
-    if (inserted && key_exists) {
+    const InsertStatus insert_status = this->distance_zero_insert(key, value, home);
+    if (insert_status == InsertStatus::inserted_at_home ||
+            insert_status == InsertStatus::updated_at_home) {
         return true;
     }
     assert(0 && "TODO: slow path");
