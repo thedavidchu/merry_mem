@@ -12,33 +12,41 @@
 
 #include "../parallel/parallel.hpp"
 
-
-#include <pthread.h>
 #include <iostream>
-#include <optional> // std::optional i think is c++17 
-
-
+#include <optional> // std::optional i think is c++17
+#include <pthread.h>
 
 // structure to pass data to threads
 struct OperationData {
-    enum OperationType {
-        INSERT,
-        SEARCH,
-        REMOVE
-    };
+    enum OperationType { INSERT, SEARCH, DELETE };
 
     OperationType operation;
-    uint64_t key;
+    KeyType key;
+    ValueType value;
 };
 
 // Define the structure to pass data to threads
 struct ThreadData {
-    ParallelRobinHoodHashTable* hashTable;
-    OperationData* operations;
+    ParallelRobinHoodHashTable *hashTable;
+    OperationData *operations;
     size_t numOperations;
+
+    int threadID;
 };
 
 
+// Function to convert OperationType to string for better output
+const char* operationToString(OperationData::OperationType op) {
+    switch (op) {
+        case OperationData::INSERT:
+            return "INSERT";
+        case OperationData::SEARCH:
+            return "SEARCH";
+        case OperationData::DELETE:
+            return "DELETE";
+    }
+    return "UNKNOWN";
+}
 
 
 void
@@ -62,33 +70,36 @@ run_sequential_perf_test()
     }
 }
 
-
-
-
-void* threadFunction(void* arg) {
-    ThreadData* data = static_cast<ThreadData*>(arg);
+void *
+threadFunction(void *arg)
+{
+    ThreadData *data = static_cast<ThreadData *>(arg);
 
     for (size_t i = 0; i < data->numOperations; ++i) {
-        const auto& op = data->operations[i];
+        const auto &op = data->operations[i];
         switch (op.operation) {
-            case OperationData::INSERT:
-                data->hashTable->insert(op.key, op.key);
-                break;
-            case OperationData::SEARCH:
-                volatile std::optional<ValueType> r = data->hashTable->search(op.key);
-                break;
-            case OperationData::REMOVE:
-                data->hashTable->remove(op.key);
-                break;
+        case OperationData::INSERT:
+            data->hashTable->insert(op.key, op.value);
+            break;
+        case OperationData::SEARCH: {
+            std::pair<ValueType, bool> res = data->hashTable->find(op.key);
+            break;
+        }
+        case OperationData::DELETE:
+            data->hashTable->remove(op.key, op.value);
+            break;
+        default:
+            std::cerr << "Unknown operation: " << operationToString(op.operation) << std::endl;
+            break;
         }
     }
-
     pthread_exit(nullptr);
 }
 
 
-
-void run_parallel_perf_test() {
+void
+run_parallel_perf_test()
+{
     constexpr size_t num_elem = 1000000;
     constexpr unsigned num_threads = 6; // You can adjust the number of threads
 
@@ -101,6 +112,7 @@ void run_parallel_perf_test() {
     for (size_t i = 0; i < num_elem * 10; ++i) {
         operations[i].operation = static_cast<OperationData::OperationType>(i % 3);
         operations[i].key = i % num_elem;
+        operations[i].value = i % num_elem;
     }
 
     // Create thread data and threads
@@ -124,28 +136,30 @@ void run_parallel_perf_test() {
     }
 }
 
-
-
-//operation 
-//key val
-// this array is the trace, now this call funcation that spawns threads that does on the trace
+// operation
+// key val
+//  this array is the trace, now this call funcation that spawns threads that does on the trace
 
 // 1. read trace
 // 2. spawn threads
 // 3. each thread does the operation
 
-int main() {
+int
+main()
+{
     clock_t start_seq, end_seq;
     start_seq = clock();
     run_sequential_perf_test();
     end_seq = clock();
-    std::cout << "Sequential: time in sec: " << ((double)(end_seq - start_seq)) / CLOCKS_PER_SEC << std::endl;
+    std::cout << "Sequential: time in sec: " << ((double)(end_seq - start_seq)) / CLOCKS_PER_SEC
+              << std::endl;
 
     clock_t start_par, end_par;
     start_par = clock();
     run_parallel_perf_test();
     end_par = clock();
-    std::cout << "Parallel: time in sec: " << ((double)(end_par - start_par)) / CLOCKS_PER_SEC << std::endl;
+    std::cout << "Parallel: time in sec: " << ((double)(end_par - start_par)) / CLOCKS_PER_SEC
+              << std::endl;
 
     return 0;
 }
