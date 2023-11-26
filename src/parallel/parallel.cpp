@@ -280,14 +280,14 @@ ParallelRobinHoodHashTable::distance_zero_insert(KeyType key,
     KeyValue blank_kv;
     KeyValue new_kv = {key, value};
     // Attempt fast-path insertion if the key-value pair is empty
-    if (this->buckets_[dist_zero_slot].key_value.load() == blank_kv) {
+    if (this->buckets_[dist_zero_slot].load() == blank_kv) {
         if (compare_and_set_key_val(dist_zero_slot, blank_kv, new_kv)) {
             return InsertStatus::inserted_at_home;
         };
     }
     // Attempt fast-path update if key matches our key
-    if (this->buckets_[dist_zero_slot].key_value.load().key == key) {
-        KeyValue old_kv = {key, this->buckets_[dist_zero_slot].key_value.load().value};
+    if (this->buckets_[dist_zero_slot].load().key == key) {
+        KeyValue old_kv = {key, this->buckets_[dist_zero_slot].load().value};
         if (compare_and_set_key_val(dist_zero_slot, old_kv, new_kv)) {
             return InsertStatus::updated_at_home;
         };
