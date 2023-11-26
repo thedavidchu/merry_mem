@@ -36,8 +36,8 @@ using AtomicCounter = std::atomic<unsigned>;
 
 class SegmentLock {
 public:
-    size_t
-    get_counter();
+    unsigned
+    get_version();
 
     bool
     is_locked();
@@ -53,11 +53,14 @@ private:
     // thread on the lock. However, if the number of locks exceeds an
     // unspecified limit, then it will throw a std::system_error.
     std::recursive_mutex mutex_;
-    // N.B. Using counter_ = 0 causes the linter to complain that the copying
+    // N.B. Using version_ = 0 causes the linter to complain that the copying
     //      invokes a deleted constructor
-    // N.B. Using counter_(0) causes the linter to complain, thinking counter_
-    //      is a function.
-    AtomicCounter counter_{0};
+    // N.B. Using version_(0) will cause the compile to parse version_ as a
+    //      function.
+    // N.B. This needs to be atomic since it can be read from multiple threads
+    //      via get_version() while its being modified by one thread.
+    AtomicCounter version_{0};
+    unsigned locked_count_{0};
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,20 +73,16 @@ private:
 struct KeyValue {
     KeyType key = 0;
     ValueType value = 0;
+
+    constexpr bool operator==(const KeyValue &) const = default;
 };
+
+using ParallelBucket = std::atomic<KeyValue>;
 
 /// This ensures we are guaranteed to use atomic operations (instead of locks).
 /// This for performance (to follow the algorithm's 'fast-path') rather than for
 /// correctness.
-static_assert(std::atomic<KeyValue>::is_always_lock_free);
-
-struct ParallelBucket {
-    std::atomic<KeyValue> key_value;
-    // A value of SIZE_MAX means that the bucket is empty. I do this hack so that
-    // we can fit this bucket into 4 words, which is more amenable to the hardware.
-    // A value of SIZE_MAX would be attrocious for performance anyways.
-    size_t offset = SIZE_MAX;
-};
+static_assert(ParallelBucket::is_always_lock_free);
 
 class ThreadManager {
 public:
@@ -110,11 +109,11 @@ public:
 private:
     class ParallelRobinHoodHashTable *const hash_table_;
     std::vector<size_t> locked_segments_;
-    std::vector<std::pair<size_t, size_t>> segment_lock_index_and_count_;
-
-    size_t
-    get_segment_index(size_t index);
+    std::vector<std::pair<size_t, unsigned>> segment_lock_index_and_version_;
 };
+
+size_t
+get_segment_index(size_t index);
 
 class ParallelRobinHoodHashTable {
 public:
@@ -165,8 +164,11 @@ private:
     bool
     compare_and_set_key_val(size_t index, KeyValue prev_kv, KeyValue new_kv);
 
-    ParallelBucket
+    KeyValue
     do_atomic_swap(ParallelBucket &swap_entry, size_t index);
+
+    KeyValue
+    atomic_load_key_val(size_t index);
 
     ////////////////////////////////////////////////////////////////////////////
     /// HELPER FUNCTIONS
