@@ -3,8 +3,6 @@
 #include "parallel.hpp"
 
 constexpr unsigned indices_per_segment = 16;
-constexpr KeyType empty_bucket_key = static_cast<KeyType>(-1);
-constexpr KeyType locked_bucket_key = static_cast<KeyType>(-2);
 
 ////////////////////////////////////////////////////////////////////////////////
 /// SEGMENT LOCK
@@ -226,7 +224,7 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
         const size_t home = hash(pair.key);
         const size_t offset = real_index - home;
 
-        if (pair.key == empty_bucket_key) {
+        if (pair.key == bucket_empty_key) {
             // This is first, because equality on an empty bucket is not well defined.
             distance_key = offset;
             return {real_index, false};

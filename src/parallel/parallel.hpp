@@ -68,11 +68,15 @@ private:
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
 
+static constexpr KeyType bucket_empty_key = static_cast<KeyType>(-1);
+static constexpr KeyType bucket_locked_key = static_cast<KeyType>(-2);
+
 /// We are assuming this will be packed into 8 (or 16... if we've changed the
 /// size of the KeyType/ValueType to int64_t) bytes so that we can atomically
 /// update both.
 struct KeyValue {
-    KeyType key = 0;
+
+    KeyType key = bucket_empty_key;
     ValueType value = 0;
 
     constexpr bool operator==(const KeyValue &) const = default;
