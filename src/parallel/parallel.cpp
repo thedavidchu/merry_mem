@@ -202,7 +202,8 @@ ParallelRobinHoodHashTable::remove_thread_lock_manager()
 }
 
 /// @brief  Get real bucket index.
-size_t static get_real_index(const size_t home, const size_t offset, const size_t capacity)
+static size_t
+get_real_index(const size_t home, const size_t offset, const size_t capacity)
 {
     LOG_TRACE("Enter");
     return (home + offset) % capacity;
