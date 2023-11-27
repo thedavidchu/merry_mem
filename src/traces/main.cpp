@@ -181,7 +181,7 @@ int
 main() 
 {
 
-    std::vector<OperationData> trace(NUM_ELEM); //not sure if this is num elemtns * num ops or just num ops
+    std::vector<OperationData> trace(NUM_OPS); //not sure if this is num elemtns * num ops or just num ops
     generate_trace(trace);
 
     clock_t start, end;
