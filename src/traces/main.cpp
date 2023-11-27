@@ -52,7 +52,7 @@ const char* operationToString(OperationData::OperationType op) {
     return "unknown";
 }
 
-
+/*
 void
 run_sequential_perf_test(std::vector<OperationData> &trace)
 {
@@ -73,7 +73,32 @@ run_sequential_perf_test(std::vector<OperationData> &trace)
         a.remove(kv);
     }
 }
+*/
 
+void 
+run_sequential_perf_test(const std::vector<OperationData>& trace) 
+{
+    SequentialRobinHoodHashTable a;
+
+    // Assuming that you need to insert, search, and remove operations for each element in the trace
+    for (const auto& op : trace) {
+        switch (op.operation) {
+            case OperationData::OperationType::insert:
+                a.insert(op.key, op.value);
+                break;
+            case OperationData::OperationType::search:
+                // Perform search operation
+                volatile std::optional<ValueType> r = a.search(op.key);
+                break;
+            case OperationData::OperationType::remove:
+                a.remove(op.key);
+                break;
+            default:
+                std::cerr << "Unknown operation: " << operationToString(op.operation) << std::endl;
+                break;
+        }
+    }
+}
 
 
 void *
@@ -119,7 +144,7 @@ generate_trace(std::vector<OperationData> &trace)
 
 
 void
-run_parallel_perf_test(int num_threads)
+run_parallel_perf_test(std::vector<OperationData> &trace, int num_threads)
 {
     ParallelRobinHoodHashTable a;
 
@@ -127,13 +152,14 @@ run_parallel_perf_test(int num_threads)
     std::vector<std::thread> threads;
     std::vector<ThreadData> threadData(num_threads);
 
-    size_t operations_per_thread = NUM_ELEM * NUM_OPS / num_threads;
+    size_t operations_per_thread = trace.size() / num_threads;
 
     // Launch threads
     for (unsigned i = 0; i < num_threads; ++i) {
         threadData[i].hashTable = &a;
-        threadData[i].operations = operations + i * operations_per_thread; //what is operations here? 
+        threadData[i].operations = const_cast<OperationData*>(&trace[i * operations_per_thread]);
         threadData[i].numOperations = operations_per_thread;
+        threadData[i].threadID = i;
         threads.emplace_back(threadFunction, &threadData[i]);
     }
 
@@ -151,7 +177,7 @@ main()
     std::vector<OperationData> trace(NUM_ELEM * NUM_OPS);
     generate_trace(trace);
 
-    clock_t start_seq, end_seq;
+    clock_t start, end;
     start = clock();
     run_sequential_perf_test(trace);
     end = clock();
