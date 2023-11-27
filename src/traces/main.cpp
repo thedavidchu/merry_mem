@@ -13,13 +13,18 @@
 #include "../parallel/parallel.hpp"
 
 #include <iostream>
-#include <optional> // std::optional i think is c++17
-#include <pthread.h>
+#include <optional> 
+
+#include <thread>
+
+
+#define NUM_OPS 2000000 //2 mill ops per trace element 
+
+#define NUM_ELEM 1000000 
 
 // structure to pass data to threads
 struct OperationData {
-    enum OperationType { INSERT, SEARCH, DELETE };
-
+    enum class OperationType { insert, search, remove };
     OperationType operation;
     KeyType key;
     ValueType value;
@@ -30,7 +35,6 @@ struct ThreadData {
     ParallelRobinHoodHashTable *hashTable;
     OperationData *operations;
     size_t numOperations;
-
     int threadID;
 };
 
@@ -39,18 +43,18 @@ struct ThreadData {
 const char* operationToString(OperationData::OperationType op) {
     switch (op) {
         case OperationData::INSERT:
-            return "INSERT";
+            return "insert";
         case OperationData::SEARCH:
-            return "SEARCH";
+            return "search";
         case OperationData::DELETE:
-            return "DELETE";
+            return "remove";
     }
-    return "UNKNOWN";
+    return "unknown";
 }
 
 
 void
-run_sequential_perf_test()
+run_sequential_perf_test(std::vector<OperationData> &trace)
 {
     constexpr size_t num_elem = 1000000;
     SequentialRobinHoodHashTable a;
@@ -70,6 +74,8 @@ run_sequential_perf_test()
     }
 }
 
+
+
 void *
 threadFunction(void *arg)
 {
@@ -78,86 +84,98 @@ threadFunction(void *arg)
     for (size_t i = 0; i < data->numOperations; ++i) {
         const auto &op = data->operations[i];
         switch (op.operation) {
-        case OperationData::INSERT:
+        case OperationData::insert: {
             data->hashTable->insert(op.key, op.value);
             break;
-        case OperationData::SEARCH: {
+        }
+        case OperationData::search: {
             std::pair<ValueType, bool> res = data->hashTable->find(op.key);
             break;
         }
-        case OperationData::DELETE:
+        case OperationData::remove: {
             data->hashTable->remove(op.key, op.value);
             break;
-        default:
+        }
+        default: {
             std::cerr << "Unknown operation: " << operationToString(op.operation) << std::endl;
             break;
+        }
         }
     }
     pthread_exit(nullptr);
 }
 
 
-void
-run_parallel_perf_test()
+void 
+generate_trace(std::vector<OperationData> &trace)
 {
-    constexpr size_t num_elem = 1000000;
-    constexpr unsigned num_threads = 6; // assumming 6 threads?
+    // Populate the operations array with a random sequence of operations
+    for (size_t i = 0; i < NUM_ELEM * NUM_OPS; ++i) {
+        trace[i].operation = static_cast<OperationData::OperationType>(i % 3);
+        trace[i].key = i % NUM_ELEM;
+        trace[i].value = i % NUM_ELEM + 1; //just so different
+    }
+}
 
+
+void
+run_parallel_perf_test(int num_threads)
+{
     ParallelRobinHoodHashTable a;
 
-    // Create an array of OperationData for each thread
-    OperationData operations[num_elem * 2000000]; 
-
-    // Populate the operations array with a random sequence of operations
-    for (size_t i = 0; i < num_elem * 2000000; ++i) {
-        operations[i].operation = static_cast<OperationData::OperationType>(i % 3);
-        operations[i].key = i % num_elem;
-        operations[i].value = i % num_elem + 1; //just so different
-    }
-
     // Create thread data and threads
-    pthread_t threads[num_threads];
-    ThreadData threadData[num_threads];
+    std::vector<std::thread> threads;
+    std::vector<ThreadData> threadData(num_threads);
 
-    size_t operations_per_thread = num_elem * 2000000 / num_threads;
+    size_t operations_per_thread = NUM_ELEM * NUM_OPS / num_threads;
 
     // Launch threads
     for (unsigned i = 0; i < num_threads; ++i) {
         threadData[i].hashTable = &a;
-        threadData[i].operations = operations + i * operations_per_thread;
+        threadData[i].operations = operations + i * operations_per_thread; //what is operations here? 
         threadData[i].numOperations = operations_per_thread;
-        pthread_create(&threads[i], nullptr, threadFunction, &threadData[i]);
+        threads.emplace_back(threadFunction, &threadData[i]);
     }
 
     // Wait for threads to finish
     for (unsigned i = 0; i < num_threads; ++i) {
-        pthread_join(threads[i], nullptr);
+       thread.join();
     }
 }
 
-// operation
-// key val
-//  this array is the trace, now this call funcation that spawns threads that does on the trace
-
-// 1. read trace
-// 2. spawn threads
-// 3. each thread does the operation
 
 int
-main()
+main() 
 {
+
+    std::vector<OperationData> trace(NUM_ELEM * NUM_OPS);
+    generate_trace(trace);
+
     clock_t start_seq, end_seq;
-    start_seq = clock();
-    run_sequential_perf_test();
-    end_seq = clock();
-    std::cout << "Sequential: time in sec: " << ((double)(end_seq - start_seq)) / CLOCKS_PER_SEC
+    start = clock();
+    run_sequential_perf_test(trace);
+    end = clock();
+    std::cout << "Sequential: time in sec: " << ((double)(end - start)) / CLOCKS_PER_SEC
               << std::endl;
 
-    clock_t start_par, end_par;
-    start_par = clock();
-    run_parallel_perf_test();
-    end_par = clock();
-    std::cout << "Parallel: time in sec: " << ((double)(end_par - start_par)) / CLOCKS_PER_SEC
+    start = clock();
+    run_parallel_perf_test(trace, 1);
+    end = clock();
+    std::cout << "Parallel 1: time in sec: " << ((double)(end - start)) / CLOCKS_PER_SEC
+              << std::endl;
+
+
+    start = clock();
+    run_parallel_perf_test(trace, 8);
+    end = clock();
+    std::cout << "Parallel 8: time in sec: " << ((double)(end - start)) / CLOCKS_PER_SEC
+              << std::endl;
+
+
+    start = clock();
+    run_parallel_perf_test(trace, 16);
+    end = clock();
+    std::cout << "Parallel 16: time in sec: " << ((double)(end - start)) / CLOCKS_PER_SEC
               << std::endl;
 
     return 0;
