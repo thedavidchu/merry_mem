@@ -101,32 +101,31 @@ void
 run_parallel_perf_test()
 {
     constexpr size_t num_elem = 1000000;
-    constexpr unsigned num_threads = 6; // You can adjust the number of threads
+    constexpr unsigned num_threads = 6; // assumming 6 threads?
 
     ParallelRobinHoodHashTable a;
 
     // Create an array of OperationData for each thread
-    OperationData operations[num_elem * 10]; // Assuming an average of 2 operations per element
+    OperationData operations[num_elem * 2000000]; 
 
     // Populate the operations array with a random sequence of operations
-    for (size_t i = 0; i < num_elem * 10; ++i) {
+    for (size_t i = 0; i < num_elem * 2000000; ++i) {
         operations[i].operation = static_cast<OperationData::OperationType>(i % 3);
         operations[i].key = i % num_elem;
-        operations[i].value = i % num_elem;
+        operations[i].value = i % num_elem + 1; //just so different
     }
 
     // Create thread data and threads
     pthread_t threads[num_threads];
     ThreadData threadData[num_threads];
 
-    size_t operations_per_thread = num_elem * 10 / num_threads;
+    size_t operations_per_thread = num_elem * 2000000 / num_threads;
 
     // Launch threads
     for (unsigned i = 0; i < num_threads; ++i) {
         threadData[i].hashTable = &a;
         threadData[i].operations = operations + i * operations_per_thread;
         threadData[i].numOperations = operations_per_thread;
-
         pthread_create(&threads[i], nullptr, threadFunction, &threadData[i]);
     }
 
