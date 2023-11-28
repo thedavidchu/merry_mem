@@ -22,7 +22,7 @@
 
 #include <cmath>
 
-#include "uniform_random.h"
+#include "uniform_random.hpp"
 
 namespace foedus {
 namespace assorted {
