@@ -26,7 +26,7 @@ struct Trace {
     ValueType value;
 
     void
-    print()
+    print() const
     {
         switch (this->op) {
         case TraceOperator::insert:
