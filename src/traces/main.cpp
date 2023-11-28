@@ -45,11 +45,11 @@ struct Trace {
 };
 
 std::vector<Trace>
-generate_traces(size_t num_elem, size_t trace_length)
+generate_traces(const size_t num_unique_elements, const size_t trace_length)
 {
     std::vector<Trace> traces;
-    traces.reserve(num_elem);
-    foedus::assorted::ZipfianRandom zrng(num_elem, /*theta=*/0.5, /*urnd_seed=*/0);
+    traces.reserve(trace_length);
+    foedus::assorted::ZipfianRandom zrng(num_unique_elements, /*theta=*/0.5, /*urnd_seed=*/0);
     foedus::assorted::UniformRandom urng(0);
 
     TraceOperator op = TraceOperator::insert;
