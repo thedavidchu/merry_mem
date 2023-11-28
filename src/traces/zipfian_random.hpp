@@ -48,7 +48,7 @@ class ZipfianRandom {
     theta_ = theta;
     zetan_ = zeta(items);
     alpha_ = 1.0 / (1.0 - theta_);
-    eta_ = (1 - std::pow(2.0 / items, 1 - theta_)) / (1 - zeta(2) / zetan_);
+    eta_ = (1 - std::pow(2.0 / static_cast<double>(items), 1 - theta_)) / (1 - zeta(2) / zetan_);
     urnd_.set_current_seed(urnd_seed);
   }
 
@@ -59,7 +59,7 @@ class ZipfianRandom {
   ZipfianRandom() {}
 
   uint64_t next() {
-    double u = urnd_.uniform_within(0, max_) / static_cast<double>(max_);
+    double u = urnd_.uniform_within(0, static_cast<uint32_t>(max_)) / static_cast<double>(max_);
     double uz = u * zetan_;
     if (uz < 1.0) {
       return 0;
@@ -69,7 +69,7 @@ class ZipfianRandom {
       return 1;
     }
 
-    uint64_t ret = static_cast<uint64_t>(max_ * std::pow(eta_ * u - eta_ + 1, alpha_));
+    uint64_t ret = static_cast<uint64_t>(static_cast<double>(max_) * std::pow(eta_ * u - eta_ + 1, alpha_));
     return ret;
   }
 

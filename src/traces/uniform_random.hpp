@@ -79,7 +79,7 @@ class UniformRandom {
   }
   uint32_t next_uint32() {
     seed_ = seed_ * 0xD04C3175 + 0x53DA9022;
-    return (seed_ >> 32) ^ (seed_ & 0xFFFFFFFF);
+    return static_cast<uint32_t>((seed_ >> 32) ^ (seed_ & 0xFFFFFFFF));
   }
 
  private:
@@ -94,7 +94,7 @@ class UniformRandom {
   uint32_t get_c(uint32_t A) const {
     // yes, I'm lazy. but this satisfies the spec.
     const uint64_t kCSeed = 0x734b00c6d7d3bbdaULL;
-    return kCSeed % (A + 1);
+    return static_cast<uint32_t>(kCSeed % (A + 1));
   }
 };
 
