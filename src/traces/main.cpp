@@ -78,24 +78,24 @@ generate_traces(const size_t num_unique_elements, const size_t trace_length)
 }
 
 void
-run_sequential_performance_test(std::vector<Trace> &traces)
+run_sequential_performance_test(const std::vector<Trace> &traces)
 {
     clock_t start_time, end_time;
 
     start_time = clock();
-    SequentialRobinHoodHashTable seq_hash_table;
+    SequentialRobinHoodHashTable hash_table;
     for (auto &t : traces) {
         switch (t.op) {
         case TraceOperator::insert: {
-            seq_hash_table.insert(t.key, t.value);
+            hash_table.insert(t.key, t.value);
             break;
         }
         case TraceOperator::search: {
-            volatile std::optional<ValueType> r = seq_hash_table.search(t.key);
+            volatile std::optional<ValueType> r = hash_table.search(t.key);
             break;
         }
         case TraceOperator::remove: {
-            seq_hash_table.remove(t.key);
+            hash_table.remove(t.key);
             break;
         }
         default: {
