@@ -13,6 +13,7 @@
 #include "../common/types.hpp"
 
 #include "../sequential/sequential.hpp"
+#include "../parallel/parallel.hpp"
 
 enum class TraceOperator {
     insert,
