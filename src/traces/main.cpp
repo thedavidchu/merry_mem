@@ -160,6 +160,12 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
 int main() {
     std::vector<Trace> traces = generate_traces(100000, 100000000);
     run_sequential_performance_test(traces);
+    run_parallel_performance_test(traces, 1);
+    run_parallel_performance_test(traces, 2);
+    run_parallel_performance_test(traces, 4);
+    run_parallel_performance_test(traces, 8);
+    run_parallel_performance_test(traces, 16);
+    run_parallel_performance_test(traces, 32);
 
     return 0;
 }
