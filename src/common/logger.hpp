@@ -13,7 +13,9 @@
 #define LOG_LEVEL_FATAL 1
 #define LOG_LEVEL_OFF   0
 
-#define LOG_LEVEL       LOG_LEVEL_OFF
+#ifndef LOG_LEVEL
+    #define LOG_LEVEL       LOG_LEVEL_OFF
+#endif
 
 #define LOG_TRACE(x)                                                                               \
     do {                                                                                           \

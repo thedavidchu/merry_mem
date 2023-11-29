@@ -29,18 +29,18 @@ Trace::print() const
 std::vector<Trace>
 generate_random_traces(const size_t max_num_unique_elements,
                        const size_t trace_length,
-                       const double insert_ratio,
-                       const double search_ratio,
-                       const double remove_ratio)
+                       const unsigned insert_ratio,
+                       const unsigned search_ratio,
+                       const unsigned remove_ratio)
 {
     LOG_TRACE("generate_random_traces() with ratio " << insert_ratio << ":" <<
             search_ratio << ":" << remove_ratio);
     std::vector<Trace> traces;
     traces.reserve(trace_length);
-    foedus::assorted::ZipfianRandom zrng(num_unique_elements, /*theta=*/0.5, /*urnd_seed=*/0);
+    foedus::assorted::ZipfianRandom zrng(max_num_unique_elements, /*theta=*/0.5, /*urnd_seed=*/0);
     foedus::assorted::UniformRandom urng(0);
     const unsigned sum_of_ratios = insert_ratio + search_ratio + remove_ratio;
-    if (sum_of_ratios < 0) {
+    if (sum_of_ratios <= 0) {
         assert(sum_of_ratios > 0 && "should be positive number");
         return traces;
     }
@@ -80,32 +80,32 @@ generate_ordered_traces(const size_t max_num_unique_elements,
     //      have ratios {3.5,3.5,3}, then we would have {4,4,3} which adds to 11
     //      elements in total.
     traces.reserve(goal_trace_length + 1);
-    foedus::assorted::ZipfianRandom zrng(num_unique_elements, /*theta=*/0.5, /*urnd_seed=*/0);
+    foedus::assorted::ZipfianRandom zrng(max_num_unique_elements, /*theta=*/0.5, /*urnd_seed=*/0);
     const double sum_of_ratios = insert_ratio + search_ratio + remove_ratio;
     if (sum_of_ratios < 0) {
         assert(sum_of_ratios > 0 && "should be positive number");
         return traces;
     }
     // NOTE This will not necessarily produce the goal trace length.
-    const size_t num_inserts = std::llround(insert_ratio / sum_of_ratios * goal_trace_length);
-    const size_t num_searches = std::llround(search_ratio / sum_of_ratios * goal_trace_length);
-    const size_t num_removes = std::llround(remove_ratio / sum_of_ratios * goal_trace_length);
+    const size_t num_inserts = static_cast<size_t>(std::lround(insert_ratio / sum_of_ratios * static_cast<double>(goal_trace_length)));
+    const size_t num_searches = static_cast<size_t>(std::lround(search_ratio / sum_of_ratios * static_cast<double>(goal_trace_length)));
+    const size_t num_removes = static_cast<size_t>(std::lround(remove_ratio / sum_of_ratios * static_cast<double>(goal_trace_length)));
     LOG_INFO("Ratio of ops" << num_inserts << ":" << num_searches << ":" << num_removes);
 
     ValueType value = 0;
-    for (size_t = 0; i < num_inserts; ++i) {
+    for (size_t i = 0; i < num_inserts; ++i) {
         TraceOperator op = TraceOperator::insert;
         KeyType key = zrng.next();
         traces.emplace_back(op, key, value);
         ++value;
     }
-    for (size_t = 0; i < num_searches; ++i) {
+    for (size_t i = 0; i < num_searches; ++i) {
         TraceOperator op = TraceOperator::search;
         KeyType key = zrng.next();
         traces.emplace_back(op, key, value);
         ++value;
     }
-    for (size_t = 0; i < num_removes; ++i) {
+    for (size_t i = 0; i < num_removes; ++i) {
         TraceOperator op = TraceOperator::remove;
         KeyType key = zrng.next();
         traces.emplace_back(op, key, value);

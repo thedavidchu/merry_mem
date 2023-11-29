@@ -19,6 +19,12 @@ struct Trace {
 
     void
     print() const;
+
+    inline bool
+    operator==(const Trace& rhs)
+    {
+        return this->op == rhs.op && this->key == rhs.key && this->value == rhs.value;
+    }
 };
 
 /// @brief  Create a trace of elements following the Zipfian distribution with
@@ -27,9 +33,9 @@ struct Trace {
 std::vector<Trace>
 generate_random_traces(const size_t max_num_unique_elements,
                        const size_t trace_length,
-                       const double insert_ratio = 33.0,
-                       const double search_ratio = 33.0,
-                       const double remove_ratio = 33.0);
+                       const unsigned insert_ratio = 33,
+                       const unsigned search_ratio = 33,
+                       const unsigned remove_ratio = 33);
 
 /// @brief  Create a trace of elements following the Zipfian distribution with
 ///         the operations being ordered: insert, search, remove.
