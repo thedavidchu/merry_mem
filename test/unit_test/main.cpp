@@ -59,11 +59,6 @@ test_traces_on_parallel(const std::vector<Trace>& traces) {
         switch (trace.op) {
             case TraceOperator::insert: {
                 auto result = parallel_hash_table.insert({trace.key, trace.value});
-                if (result.second) {
-                    std::cout << "Insert: Key " << trace.key << " inserted with value " << trace.value << std::endl;
-                } else {
-                    std::cout << "Insert: Key " << trace.key << " already exists, value updated to " << trace.value << std::endl;
-                }
                 break;
             }
             case TraceOperator::search:
@@ -134,7 +129,6 @@ compare_seq(const SequentialRobinHoodHashTable& sequentialTable,const std::unord
         mapElements.push_back(it->second);
     }
 
-
     std::unordered_set<ValueType> unorderedMapSet(mapElements.begin(), mapElements.end());
 
     //compare the unordered sets to determine if they have the same elements
@@ -142,11 +136,9 @@ compare_seq(const SequentialRobinHoodHashTable& sequentialTable,const std::unord
 
     //print out results
     if(areEqualSequential) {
-        //std::cout << "Sequential and parallel hash tables are equal to the unordered map" << std::endl;
         return 1;
     }
     else{
-        //std::cout << "Sequential hash table is equal to the unordered map" << std::endl;
         return 0;
     }
 }
@@ -154,29 +146,21 @@ compare_seq(const SequentialRobinHoodHashTable& sequentialTable,const std::unord
 
 int main(int argc, char** argv) {
 
-    //numbers can be changed to test different cases
-    //possibly change to allow for args to funcaiton call for parameters 
-    std::vector<Trace> traces = generate_random_traces(10, 10); 
-
-
+    std::vector<Trace> traces = generate_random_traces(100, 1000); 
 
     test_traces_on_unordered_map(traces);
     test_traces_on_sequential(traces);
     //test_traces_on_parallel(traces);
 
-    for (auto& element: traces) {
-        auto actual = sequential_hash_table.search(element.key);
-        std::cout << "Actual: " << actual.value() << std::endl;
-        auto ref = map.find(element.key);
-        std::cout << "ref: " << ref->second << std::endl;
+    for (auto& element: map) {
+        auto actual = sequential_hash_table.search(element.first);
 
-        /*if(actual.value() != ref->second) {
+        if(actual.value() != element.second) {
             std::cout << "**************************" << std::endl;
             std::cout << "********FAILURE**********" << std::endl;
-            std::cout << "Search failed for key " << element.key << std::endl;
+            std::cout << "Search failed for key " << element.first << std::endl;
             std::cout << "**************************" << std::endl;
         }
-        */
 
     }
 
