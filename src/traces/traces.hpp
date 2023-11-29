@@ -30,3 +30,17 @@ generate_random_traces(const size_t max_num_unique_elements,
                        const double insert_ratio = 33.0,
                        const double search_ratio = 33.0,
                        const double remove_ratio = 33.0);
+
+/// @brief  Create a trace of elements following the Zipfian distribution with
+///         the operations being ordered: insert, search, remove.
+/// @param  goal_trace_length: size_t
+///             This is the attempted trace length. However, if the ratios do
+///             not sum nicely, we not necessarily have that exact trace length.
+/// @param  {insert,search,remove}_ratio: double = 33.0.
+///             This is the relative ratio of the {} operation.
+std::vector<Trace>
+generate_ordered_traces(const size_t max_num_unique_elements,
+                        const size_t goal_trace_length,
+                        const double insert_ratio = 33.0,
+                        const double search_ratio = 33.0,
+                        const double remove_ratio = 33.0);
