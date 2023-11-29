@@ -152,7 +152,21 @@ int main(int argc, char** argv) {
     test_traces_on_sequential(traces);
     test_traces_on_parallel(traces);
 
-    compare_hash_tables(sequential_hash_table, parallel_hash_table, map);
+    bool check = compare_hash_tables(sequential_hash_table, parallel_hash_table, map);
+
+    if(check) {
+        std::cout << "**************************" << std::endl;
+        std::cout << "********SUCCESS**********" << std::endl;
+        std::cout << "Hash tables are equal" << std::endl;
+        std::cout << "**************************" << std::endl;
+    } else {
+        std::cout << "**************************" << std::endl;
+        std::cout << "********FAILURE**********" << std::endl;
+        std::cout << "Hash tables are not equal" << std::endl;
+        std::cout << "**************************" << std::endl;
+    }
+
+
 
     return 0;
 }
