@@ -6,9 +6,13 @@
 #include "parallel.hpp"
 
 std::unordered_map<KeyType, ValueType> map;
+SequentialRobinHoodHashTable sequential_hash_table;
+parallelRobinHoodHashTable parallel_hash_table;
 
-void test_traces_on_unordered_map(const std::vector<Trace>& traces) {
 
+void 
+test_traces_on_unordered_map(const std::vector<Trace>& traces) 
+{
     for (const auto& trace : traces) {
         switch (trace.op) {
             case TraceOperator::insert: {
@@ -40,13 +44,13 @@ void test_traces_on_unordered_map(const std::vector<Trace>& traces) {
 }
 
 
-void test_traces_on_sequential(const std::vector<Trace>& traces) {
-    SequentialBucket hashTable(); // Create an instance of your robin hood hash table
-
+void 
+test_traces_on_sequential(const std::vector<Trace>& traces) 
+{
     for (const auto& trace : traces) {
         switch (trace.op) {
             case TraceOperator::insert: {
-                auto result = hashTable.insert({trace.key, trace.value});
+                auto result = sequential_hash_table.insert({trace.key, trace.value});
                 if (result.second) {
                     std::cout << "Insert: Key " << trace.key << " inserted with value " << trace.value << std::endl;
                 } else {
@@ -56,14 +60,14 @@ void test_traces_on_sequential(const std::vector<Trace>& traces) {
                 break;
             }
             case TraceOperator::search:
-                if (hashTable.search(trace.key) == hashTable.end()) {
+                if (sequential_hash_table.search(trace.key) == sequential_hash_table.end()) {
                     std::cout << "Search: Key " << trace.key << " not found." << std::endl;
                 } else {
-                    std::cout << "Search: Key " << trace.key << " found with value " << hashTable[trace.key] << std::endl;
+                    std::cout << "Search: Key " << trace.key << " found with value " << sequential_hash_table[trace.key] << std::endl;
                 }
                 break;
             case TraceOperator::remove:
-                if (hashTable.remove(trace.key);) {
+                if (sequential_hash_table.remove(trace.key)) {
                     std::cout << "Remove: Key " << trace.key << " removed." << std::endl;
                 } else {
                     std::cout << "Remove: Key " << trace.key << " not found, nothing to remove." << std::endl;
@@ -74,12 +78,10 @@ void test_traces_on_sequential(const std::vector<Trace>& traces) {
 }
 
 void test_traces_on_parallel(const std::vector<Trace>& traces) {
-    ParallelBucket hashTable();
-
     for (const auto& trace : traces) {
         switch (trace.op) {
             case TraceOperator::insert: {
-                auto result = hashTable.insert({trace.key, trace.value});
+                auto result = parallel_hash_table.insert({trace.key, trace.value});
                 if (result.second) {
                     std::cout << "Insert: Key " << trace.key << " inserted with value " << trace.value << std::endl;
                 } else {
@@ -89,14 +91,14 @@ void test_traces_on_parallel(const std::vector<Trace>& traces) {
                 break;
             }
             case TraceOperator::search:
-                if (hashTable.find(trace.key) == hashTable.end()) {
+                if (parallel_hash_table.find(trace.key) == parallel_hash_table.end()) {
                     std::cout << "Search: Key " << trace.key << " not found." << std::endl;
                 } else {
-                    std::cout << "Search: Key " << trace.key << " found with value " << hashTable[trace.key] << std::endl;
+                    std::cout << "Search: Key " << trace.key << " found with value " << parallel_hash_table[trace.key] << std::endl;
                 }
                 break;
             case TraceOperator::remove:
-                if (hashTable.remove(trace.key);) {
+                if (parallel_hash_table.remove(trace.key)) {
                     std::cout << "Remove: Key " << trace.key << " removed." << std::endl;
                 } else {
                     std::cout << "Remove: Key " << trace.key << " not found, nothing to remove." << std::endl;
@@ -109,5 +111,26 @@ void test_traces_on_parallel(const std::vector<Trace>& traces) {
 
 
 
+void compare_hash_tables(const ParallelBucket& hashTable, const std::vector<Trace>& traces) {
+    // Implementation for comparing the final state of the hash table
+}
+
+
+
+
+
+
+int main(int argc, char** argv) {
+
+    //numbers can be changed to test different cases
+    //possibly change to allow for args to funcaiton call for parameters 
+    std::vector<Trace> traces = generate_random_traces(100, 1000); 
+
+    test_traces_on_unordered_map(traces);
+    test_traces_on_sequential(traces);
+    test_traces_on_parallel(traces);
+
+    return 0;
+}
 
 
