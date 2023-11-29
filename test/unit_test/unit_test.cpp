@@ -21,7 +21,7 @@ test_traces_on_unordered_map(const std::vector<Trace>& traces)
                     std::cout << "Insert: Key " << trace.key << " inserted with value " << trace.value << std::endl;
                 } else {
                     std::cout << "Insert: Key " << trace.key << " already exists, value updated to " << trace.value << std::endl;
-                    result.first->second = trace.value; // Update the value
+                    //result.first->second = trace.value; // Update the value
                 }
                 break;
             }
@@ -55,7 +55,6 @@ test_traces_on_sequential(const std::vector<Trace>& traces)
                     std::cout << "Insert: Key " << trace.key << " inserted with value " << trace.value << std::endl;
                 } else {
                     std::cout << "Insert: Key " << trace.key << " already exists, value updated to " << trace.value << std::endl;
-                    result.first->second = trace.value; // Update the value
                 }
                 break;
             }
@@ -86,7 +85,6 @@ void test_traces_on_parallel(const std::vector<Trace>& traces) {
                     std::cout << "Insert: Key " << trace.key << " inserted with value " << trace.value << std::endl;
                 } else {
                     std::cout << "Insert: Key " << trace.key << " already exists, value updated to " << trace.value << std::endl;
-                    result.first->second = trace.value; // Update the value
                 }
                 break;
             }
