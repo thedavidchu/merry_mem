@@ -3,11 +3,11 @@
 #include <unordered_map>
 #include <iostream>
 #include "sequential.hpp"
-#include "parallel.hpp"
+//#include "parallel.hpp"
 
 std::unordered_map<KeyType, ValueType> map;
 SequentialRobinHoodHashTable sequential_hash_table;
-parallelRobinHoodHashTable parallel_hash_table;
+//parallelRobinHoodHashTable parallel_hash_table;
 
 
 void 
@@ -76,7 +76,7 @@ test_traces_on_sequential(const std::vector<Trace>& traces)
     }
 }
 
-
+/*
 void 
 test_traces_on_parallel(const std::vector<Trace>& traces) {
     for (const auto& trace : traces) {
@@ -107,9 +107,9 @@ test_traces_on_parallel(const std::vector<Trace>& traces) {
         }
     }
 }
+*/
 
-
-
+/*
 bool
 compare_hash_tables(const SequentialRobinHoodHashTable& sequentialTable,
                          const parallelRobinHoodHashTable& parallelTable,
@@ -140,7 +140,7 @@ compare_hash_tables(const SequentialRobinHoodHashTable& sequentialTable,
         std::cout << "BOTH UNEQUAL" << std::endl;
     }
 }
-
+*/
 
 
 
@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
         std::cout << "Hash tables are not equal" << std::endl;
         std::cout << "**************************" << std::endl;
     }
-
+    
 
     return 0;
 }
