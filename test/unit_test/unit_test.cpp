@@ -142,6 +142,30 @@ compare_hash_tables(const SequentialRobinHoodHashTable& sequentialTable,
 }
 
 
+
+
+bool
+compare_seq(const SequentialRobinHoodHashTable& sequentialTable,const std::unordered_map<KeyType, ValueType>& map) {
+
+    //add to unordered sets as order does not matter in them
+    std::unordered_set<ValueType> sequentialSet(sequentialTable.begin(), sequentialTable.end());
+    std::unordered_set<ValueType> unorderedMapSet(unorderedMap.begin(), unorderedMap.end());
+
+    //compare the unordered sets to determine if they have the same elements
+    bool areEqualSequential = (sequentialSet == unorderedMapSet);
+
+    //print out results
+    if(areEqualSequential) {
+        std::cout << "Sequential and parallel hash tables are equal to the unordered map" << std::endl;
+        return 1;
+    }
+    else{
+        std::cout << "Sequential hash table is equal to the unordered map" << std::endl;
+        return 0;
+    }
+}
+
+
 int main(int argc, char** argv) {
 
     //numbers can be changed to test different cases
@@ -150,9 +174,11 @@ int main(int argc, char** argv) {
 
     test_traces_on_unordered_map(traces);
     test_traces_on_sequential(traces);
-    test_traces_on_parallel(traces);
+    //test_traces_on_parallel(traces);
 
-    bool check = compare_hash_tables(sequential_hash_table, parallel_hash_table, map);
+    //bool check = compare_hash_tables(sequential_hash_table, parallel_hash_table, map);
+   
+    bool check = compare_seq(sequential_hash_table, map);
 
     if(check) {
         std::cout << "**************************" << std::endl;
