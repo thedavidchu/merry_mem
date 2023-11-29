@@ -25,7 +25,7 @@ struct Trace {
 ///         a uniformly random distribution of insert, search, and remove
 ///         operations.
 std::vector<Trace>
-generate_random_traces(const size_t num_unique_elements,
+generate_random_traces(const size_t max_num_unique_elements,
                        const size_t trace_length,
                        const double insert_ratio = 33.0,
                        const double search_ratio = 33.0,
