@@ -1,8 +1,9 @@
 # NOTE: We include header files to make them visible to IDEs.
-add_executable(traces
-    main.cpp
-    ../sequential/sequential.cpp
-    ../sequential/sequential.hpp
+add_library(traces
+    traces.cpp
+    traces.hpp
+    uniform_random.hpp
+    zipfian_random.hpp
 )
 
 target_compile_options(traces
