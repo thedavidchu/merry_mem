@@ -26,30 +26,37 @@ Trace::print() const
 }
 
 std::vector<Trace>
-generate_random_traces(const size_t num_unique_elements, const size_t trace_length)
+generate_random_traces(const size_t num_unique_elements,
+                       const size_t trace_length,
+                       const double insert_ratio,
+                       const double search_ratio,
+                       const double remove_ratio)
 {
+    LOG_TRACE("generate_random_traces() with ratio " << insert_ratio << ":" <<
+            search_ratio << ":" << remove_ratio);
     std::vector<Trace> traces;
     traces.reserve(trace_length);
     foedus::assorted::ZipfianRandom zrng(num_unique_elements, /*theta=*/0.5, /*urnd_seed=*/0);
     foedus::assorted::UniformRandom urng(0);
+    const unsigned sum_of_ratios = insert_ratio + search_ratio + remove_ratio;
+    if (sum_of_ratios < 0) {
+        assert(sum_of_ratios > 0 && "should be positive number");
+        return traces;
+    }
 
     TraceOperator op = TraceOperator::insert;
     KeyType key = 0;
     ValueType value = 0;
     for (size_t i = 0; i < trace_length; ++i) {
-        uint64_t raw_op = urng.uniform_within(1, 3);
-        switch (raw_op) {
-        case 1:
+        uint64_t op_prob = urng.uniform_within(1, sum_of_ratios);
+        assert(1 <= op_prob && op_prob <= sum_of_ratios &&
+                "the op_prob should be in interval [1, sum_of_ratios]");
+        if (op_prob <= insert_ratio) {
             op = TraceOperator::insert;
-            break;
-        case 2:
+        } else if (op_prob <= insert_ratio + search_ratio) {
             op = TraceOperator::search;
-            break;
-        case 3:
+        } else {
             op = TraceOperator::remove;
-            break;
-        default:
-            assert(0 && "impossible!");
         }
         key = zrng.next();
         traces.emplace_back(op, key, value);
