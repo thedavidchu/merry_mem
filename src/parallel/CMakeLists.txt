@@ -1,8 +1,16 @@
 # NOTE: We include header files to make them visible to IDEs.
-add_executable(parallel
-    main.cpp
+add_library(parallel
     parallel.cpp
     parallel.hpp
+)
+
+add_executable(parallel_exe
+    main.cpp
+)
+
+target_link_libraries(parallel_exe
+    PRIVATE
+    parallel
 )
 
 target_compile_options(parallel

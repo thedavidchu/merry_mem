@@ -1,8 +1,16 @@
 # NOTE: We include header files to make them visible to IDEs.
-add_executable(sequential
-    main.cpp
+add_library(sequential
     sequential.cpp
     sequential.hpp
+)
+
+add_executable(sequential_exe
+    main.cpp
+)
+
+target_link_libraries(sequential_exe
+    PRIVATE
+    sequential
 )
 
 target_compile_options(sequential
