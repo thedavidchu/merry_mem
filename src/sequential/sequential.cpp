@@ -300,13 +300,3 @@ SequentialRobinHoodHashTable::resize(size_t new_size) {
 }
 
 
-std::vector<ValueType> 
-SequentialRobinHoodHashTable::getElements() const {
-  std::vector<ValueType> elements;
-  for (auto& bkt : this->buckets_) {
-    if (!bkt.is_empty()) {
-      elements.push_back(bkt.value);
-    }
-  }
-  return elements;
-}
