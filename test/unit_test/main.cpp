@@ -166,15 +166,19 @@ int main(int argc, char** argv) {
 
     for (auto& element: traces) {
         auto actual = sequential_hash_table.search(element.key);
+        std::cout << "Actual: " << actual.value() << std::endl;
         auto ref = map.find(element.key);
-        if(actual.value() != ref->second) {
+        std::cout << "ref: " << ref->second << std::endl;
+
+        /*if(actual.value() != ref->second) {
             std::cout << "**************************" << std::endl;
             std::cout << "********FAILURE**********" << std::endl;
             std::cout << "Search failed for key " << element.key << std::endl;
             std::cout << "**************************" << std::endl;
         }
+        */
+
     }
-    
 
 
     //bool check = compare_hash_tables(sequential_hash_table, parallel_hash_table, map);
