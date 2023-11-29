@@ -4,6 +4,22 @@ add_library(sequential
     sequential.hpp
 )
 
+target_link_libraries(sequential
+    PRIVATE
+    common
+)
+
+# Forward this directory to dependents.
+target_include_directories(sequential PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_compile_options(sequential
+    PRIVATE
+    ${MM_REQUIRED_WARN_FLAGS}
+    ${MM_EXTRA_WARN_FLAGS}
+)
+
 add_executable(sequential_exe
     main.cpp
 )
@@ -13,7 +29,7 @@ target_link_libraries(sequential_exe
     sequential
 )
 
-target_compile_options(sequential
+target_compile_options(sequential_exe
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}

@@ -5,9 +5,14 @@ add_library(parallel
 )
 
 # Forward this directory to dependents.
-target_include_directories(parallel
-    PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
+target_link_directories(parallel PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_compile_options(parallel
+    PRIVATE
+    ${MM_REQUIRED_WARN_FLAGS}
+    ${MM_EXTRA_WARN_FLAGS}
 )
 
 add_executable(parallel_exe
@@ -19,7 +24,7 @@ target_link_libraries(parallel_exe
     parallel
 )
 
-target_compile_options(parallel
+target_compile_options(parallel_exe
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}
