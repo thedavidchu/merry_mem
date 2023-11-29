@@ -157,27 +157,51 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
     HashCodeType hashcode = hash(key);
     size_t home = get_home(hashcode, this->capacity_);
     LOG_DEBUG(key << " hashes to " << home);
-    
-    // first try fast path
+
+    // (fast path) first try distance zero insert
     const InsertStatus insert_status = this->distance_zero_insert(key, value, home);
     if (insert_status == InsertStatus::inserted_at_home ||
             insert_status == InsertStatus::updated_at_home) {
         return true;
     }
-
-    // now try slow path
-    ThreadManager manager = this->get_thread_lock_manager();
-    KeyValue key_value = {.key=key, .value=value};
-    ParallelBucket entry_to_insert(key_value);
-    auto [next_index, found] = this->find_next_index_lock(manager, home, key);
-    if (found) {
-        manager.release_all_locks();
-        return false;
+    
+    // (fast path) search with RH invariant to see if can atomically update
+    size_t home_offset = hashcode - hash(this->buckets_[home].load().key);
+    size_t idx = home + 1;
+    KeyValue new_kv = {.key=key, .value=value};
+    for(size_t distance = 1; home_offset >= distance; ++distance, ++idx){
+        KeyValue prev_kv = this->buckets_[idx].load();
+        while(prev_kv.key == key) {
+            bool updated = this->compare_and_set_key_val(idx, prev_kv, new_kv);
+            if (updated == true) {
+                return true;
+            }
+        }
     }
 
-    locked_insert(entry_to_insert, next_index);
+    // now slow path
+    ThreadManager manager = this->get_thread_lock_manager();
+    ParallelBucket entry_to_insert(new_kv);
+    auto [next_index, found] = this->find_next_index_lock(manager, home, key);
+
+    // locked search + update 
+    if(found){
+        bool updated = this->compare_and_set_key_val(next_index, this->buckets_[next_index].load(), new_kv);
+        if (updated == true) {
+            manager.release_all_locks();
+            return true;
+        }
+    }
+
+    // locked insert
+    bool inserted = this->locked_insert(entry_to_insert, next_index);
+    if (inserted == true) {
+        manager.release_all_locks();
+        return true;
+    }
+
     manager.release_all_locks();
-    return true;
+    return false;
 }
 
 bool
