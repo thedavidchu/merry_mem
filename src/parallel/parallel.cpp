@@ -166,13 +166,16 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
     }
     
     // (fast path) search with RH invariant to see if can atomically update
-    size_t home_offset = hashcode - hash(this->buckets_[home].load().key);
     size_t idx = home + 1;
     KeyValue new_kv = {.key=key, .value=value};
-    for(size_t distance = 1; home_offset >= distance; ++distance, ++idx){
-        KeyValue prev_kv = this->buckets_[idx].load();
-        while(prev_kv.key == key) {
-            bool updated = this->compare_and_set_key_val(idx, prev_kv, new_kv);
+    for(size_t new_offset = 1; ; ++new_offset, ++idx){
+        KeyValue curr_kv = this->buckets_[idx].load();
+        size_t curr_offset = idx - hash(curr_kv.key);
+        if (curr_offset < new_offset){
+            break;
+        }
+        while(curr_kv.key == key) {
+            bool updated = this->compare_and_set_key_val(idx, curr_kv, new_kv);
             if (updated == true) {
                 return true;
             }
@@ -231,11 +234,9 @@ ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
     manager.lock(curr_index);
     while(this->buckets_[next_index].offset > 0 && !entry_to_insert.is_empty()) {
         manager.lock(next_index); 
-        ParallelBucket &entry_to_move = this->do_atomic_swap(entry_to_insert, next_index); //na this is fucked up 
-        this->buckets_[curr_index].key = entry_to_move.key;
-        this->buckets_[curr_index].value = entry_to_move.value;
-        this->buckets_[curr_index].hashcode = entry_to_move.hashcode;
-        this->buckets_[curr_index].offset = entry_to_move.offset--;
+        ParallelBucket entry_to_move = this->do_atomic_swap(entry_to_insert, next_index); //na this is fucked up 
+        --entry_to_move.offset;
+        this->buckets_[curr_index] = entry_to_move;
         curr_index = next_index;
         ++next_index;
     }
@@ -353,7 +354,7 @@ ParallelRobinHoodHashTable::compare_and_set_key_val(size_t index,
 }
 
 KeyValue
-ParallelRobinHoodHashTable::do_atomic_swap(ParallelBucket &swap_entry, size_t index)
+ParallelRobinHoodHashTable::do_atomic_swap(KeyValue &swap_entry, size_t index)
 {
     return this->buckets_[index].exchange(swap_entry);
 }
@@ -397,16 +398,17 @@ bool
 ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_t swap_index)
 {
     // TODO
-    //size_t swap_index = entry_to_insert.offset; //? i thnk its redoing it bc of possible contention but its locked so??
-    
+    size_t swap_index = index;
+    KeyValue entry_to_swap = entry_to_insert;
     ThreadManager manager = this->get_thread_lock_manager(); 
     while(true) {
-        ParallelBucket &swapped_entry = this->do_atomic_swap(entry_to_insert, swap_index);
-        if(swapped_entry.offset == SIZE_MAX) { //size max is empty 
+        entry_to_swap = this->do_atomic_swap(entry_to_insert, swap_index);
+        if(entry_to_swap.key == bucket_empty_key) { //size max is empty 
             return true;
         }
-        size_t swap_index_copy = swap_index;
-        auto [swap_index, is_found] = this->find_next_index_lock(manager, swap_index_copy, entry_to_insert.key, entry_to_insert.offset);
+
+        auto [next_swap_index, found] = this->find_next_index_lock(manager, swap_index, entry_to_swap.key);
+        swap_index = next_swap_index;
     }
 
     //add conditional check to check is found or not?

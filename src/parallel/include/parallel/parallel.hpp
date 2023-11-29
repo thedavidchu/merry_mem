@@ -171,7 +171,7 @@ private:
     compare_and_set_key_val(size_t index, KeyValue prev_kv, KeyValue new_kv);
 
     KeyValue
-    do_atomic_swap(ParallelBucket &swap_entry, size_t index);
+    do_atomic_swap(KeyValue &swap_entry, size_t index);
 
     KeyValue
     atomic_load_key_val(size_t index);
