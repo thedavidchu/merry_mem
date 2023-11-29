@@ -146,6 +146,7 @@ get_segment_index(size_t index)
     return index / indices_per_segment;
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
 /// HASH TABLE
 ////////////////////////////////////////////////////////////////////////////////
@@ -154,33 +155,107 @@ bool
 ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
 {
     HashCodeType hashcode = hash(key);
-
     size_t home = get_home(hashcode, this->capacity_);
     LOG_DEBUG(key << " hashes to " << home);
+    
+    // first try fast path
     const InsertStatus insert_status = this->distance_zero_insert(key, value, home);
     if (insert_status == InsertStatus::inserted_at_home ||
             insert_status == InsertStatus::updated_at_home) {
         return true;
     }
-    assert(0 && "TODO: slow path");
-}
 
-void
-ParallelRobinHoodHashTable::insert_or_update(KeyType key, ValueType value)
-{
-    // TODO
+    // now try slow path
+    ThreadManager manager = this->get_thread_lock_manager();
+    KeyValue key_value = {.key=key, .value=value};
+    ParallelBucket entry_to_insert(key_value);
+    auto [next_index, found] = this->find_next_index_lock(manager, home, key);
+    if (found) {
+        manager.release_all_locks();
+        return false;
+    }
+
+    locked_insert(entry_to_insert, next_index);
+    manager.release_all_locks();
+    return true;
 }
 
 bool
 ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
 {
-    // TODO
+    HashCodeType hashcode = hash(key);
+    size_t home = get_home(hashcode, this->capacity_);
+    // first try fast path
+    // TODO: Fast path
+
+    // now try slow path
+    KeyValue key_value = {.key=key, .value=value};
+    ParallelBucket entry_to_insert(key_value);
+
+    ThreadManager manager = this->get_thread_lock_manager();
+
+    auto[index, found] = this->find_next_index_lock(manager, home, key);
+
+    if(!found) {
+        manager.release_all_locks();
+        return false;
+    }
+
+    size_t next_index = index++;
+    size_t curr_index = index;
+    
+    manager.lock(curr_index);
+    while(this->buckets_[next_index].offset > 0 && !entry_to_insert.is_empty()) {
+        manager.lock(next_index); 
+        ParallelBucket &entry_to_move = this->do_atomic_swap(entry_to_insert, next_index); //na this is fucked up 
+        this->buckets_[curr_index].key = entry_to_move.key;
+        this->buckets_[curr_index].value = entry_to_move.value;
+        this->buckets_[curr_index].hashcode = entry_to_move.hashcode;
+        this->buckets_[curr_index].offset = entry_to_move.offset--;
+        curr_index = next_index;
+        ++next_index;
+    }
+
+    entry_to_insert.unlock();
+    ParallelBucket empty_entry; //does this do the default vals? 
+    this->buckets_[curr_index].key = empty_entry.key;
+    this->buckets_[curr_index].value = empty_entry.value;
+    this->buckets_[curr_index].hashcode = empty_entry.hashcode;
+    this->buckets_[curr_index].offset = empty_entry.offset;
+    manager.release_all_locks();
+    return true;
 }
 
 std::pair<ValueType, bool>
 ParallelRobinHoodHashTable::find(KeyType key)
 {
-    // TODO
+    HashCodeType hashcode =this->hash(key);
+    size_t home = this->get_home(hashcode, this->capacity_);
+    ParallelBucket &zero_distance_key_pair = atomic_load_key_index(home);
+
+    if(zero_distance_key_pair.key == key) {
+        return {zero_distance_key_pair.key, true};
+    }
+    if(zero_distance_key_pair.offset == 0) {
+        return {-1, false};
+    }
+    
+    size_t tries = 0;
+    //ValueType value_copy = 0;
+    while (tries < MAX_TRIES) {
+        tries++;
+        auto [value, found, speculative_success] = this->find_speculate(key, home);
+
+        if (speculative_success) {
+            return {value, found};
+        }
+    }
+    ParallelBucket &entry_to_find = {.key = key, .value = value_copy, .hashcode = hashcode, .offset = 0};
+    ThreadManager &manager = this->get_thread_lock_manager();
+    auto [index, found] = this->find_next_index_lock(manager, home, key, entry_to_find.offset);
+    ValueType value = this->buckets_[index].value;
+    manager.release_all_locks();
+    return {value, found};
 }
 
 void
@@ -206,14 +281,13 @@ static size_t
 get_real_index(const size_t home, const size_t offset, const size_t capacity)
 {
     LOG_TRACE("Enter");
-    return (home + offset) % capacity;
+    return (home + offset) % capacity; 
 }
 
 std::pair<size_t, bool>
 ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
                                                  size_t start_index,
-                                                 KeyType key,
-                                                 size_t &distance_key)
+                                                 KeyType key)
 {
     LOG_TRACE("Enter");
     const size_t capacity = this->buckets_.size();
@@ -227,10 +301,6 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
 
         if (pair.key == bucket_empty_key) {
             // This is first, because equality on an empty bucket is not well defined.
-            distance_key = offset;
-            return {real_index, false};
-        } else if (offset < distance_key) {
-            distance_key = offset;
             return {real_index, false};
         } else if (pair.key == key) { // If found
             return {real_index, true};
@@ -264,10 +334,16 @@ ParallelRobinHoodHashTable::do_atomic_swap(ParallelBucket &swap_entry, size_t in
     return this->buckets_[index].exchange(swap_entry);
 }
 
+ParallelBucket &
+ParallelRobinHoodHashTable::atomic_load_key_index(size_t index)
+{
+    return this->buckets_[index].exchange(swap_entry);
+}
+
 KeyValue
 ParallelRobinHoodHashTable::atomic_load_key_val(size_t index)
 {
-    return this->buckets_[index].load();
+    return this->buckets_[index].load(); 
 }
 
 InsertStatus
@@ -297,10 +373,39 @@ bool
 ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_t swap_index)
 {
     // TODO
+    //size_t swap_index = entry_to_insert.offset; //? i thnk its redoing it bc of possible contention but its locked so??
+    
+    ThreadManager manager = this->get_thread_lock_manager(); 
+    while(true) {
+        ParallelBucket &swapped_entry = this->do_atomic_swap(entry_to_insert, swap_index);
+        if(swapped_entry.offset == SIZE_MAX) { //size max is empty 
+            return true;
+        }
+        size_t swap_index_copy = swap_index;
+        auto [swap_index, is_found] = this->find_next_index_lock(manager, swap_index_copy, entry_to_insert.key, entry_to_insert.offset);
+    }
+
+    //add conditional check to check is found or not?
 }
 
 std::tuple<ValueType, bool, bool>
 ParallelRobinHoodHashTable::find_speculate(KeyType key, size_t start_index)
-{
-    // TODO
+{   
+    // TODO    
+    bool speculative_sucess = false;
+    bool found = false;
+    ValueType value = 0; 
+    size_t index = start_index;
+    ThreadManager manager = this->get_thread_lock_manager();
+
+    for(size_t distance = 0; this->buckets_[index].offset >= distance; ++distance, ++index){
+        manager.speculate_index(index);
+        if(this->buckets_[index].key == key){
+            value = this->buckets_[index].value;
+            found = true;
+            break;
+        }
+    }
+    speculative_sucess = manager.finish_speculate();
+    return std::make_tuple(value, found, speculative_sucess);
 }
