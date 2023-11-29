@@ -207,6 +207,7 @@ SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
       ErrorType e = this->resize(2 * this->capacity_);
       assert(e == ErrorType::ok && "error in resize");
     }
+
     ErrorType e = insert_without_resize(this->buckets_, key, value, hashcode);
     assert(e == ErrorType::ok && "error in insert_without_resize");
     ++this->length_;
@@ -298,3 +299,14 @@ SequentialRobinHoodHashTable::resize(size_t new_size) {
   return ErrorType::ok;
 }
 
+
+std::vector<ValueType> 
+SequentialRobinHoodHashTable::getElements() const {
+  std::vector<ValueType> elements;
+  for (auto& bkt : this->buckets_) {
+    if (!bkt.is_empty()) {
+      elements.push_back(bkt.value);
+    }
+  }
+  return elements;
+}

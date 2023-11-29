@@ -3,6 +3,7 @@ add_executable(unit_test
     main.cpp
     ../../src/sequential/sequential.cpp
     ../../src/sequential/sequential.hpp
+    ../../src/traces/traces.cpp
 )
 
 target_compile_options(unit_test

@@ -102,10 +102,15 @@ public:
   ErrorType
   remove(KeyType key);
 
+  std::vector<ValueType> 
+  getElements() const;
+
+
+
 private:
-  std::vector<SequentialBucket> buckets_ = {SequentialBucket()};
+  std::vector<SequentialBucket> buckets_{1<<20};
   size_t length_ = 0;
-  size_t capacity_ = 1;
+  size_t capacity_ = 1<<20;
 
   ErrorType
   resize(size_t new_size);
