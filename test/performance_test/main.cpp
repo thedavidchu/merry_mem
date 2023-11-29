@@ -3,14 +3,15 @@
 #include <thread>
 #include <vector>
 
-#include <time.h>
+#include <ctime>
 
-#include "../../common/logger.hpp"
-#include "../../common/status.hpp"
-#include "../../common/types.hpp"
+#include "../../src/common/logger.hpp"
+#include "../../src/common/status.hpp"
+#include "../../src/common/types.hpp"
+#include "../../src/traces/traces.hpp"
 
-#include "../../sequential/sequential.hpp"
-#include "../../parallel/parallel.hpp"
+#include "../../src/sequential/sequential.hpp"
+#include "../../src/parallel/parallel.hpp"
 
 void
 run_sequential_performance_test(const std::vector<Trace> &traces)
@@ -51,7 +52,7 @@ run_parallel_worker(ParallelRobinHoodHashTable &hash_table,
     size_t trace_size = traces.size();
 
     for (size_t i = t_id; i < trace_size; i += num_workers) {
-        Trace &t = traces[i];
+        const Trace &t = traces[i];
         switch (t.op) {
         case TraceOperator::insert: {
             hash_table.insert(t.key, t.value);
@@ -68,7 +69,7 @@ run_parallel_worker(ParallelRobinHoodHashTable &hash_table,
             break;
         }
         default: {
-            assert(0 && "impossible!");
+            assert(false && "impossible!");
         }
         }
     }

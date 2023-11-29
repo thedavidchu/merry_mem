@@ -1,11 +1,8 @@
 # NOTE: We include header files to make them visible to IDEs.
 add_executable(test_traces
     main.cpp
-)
 
-target_link_libraries(test_traces
-    PRIVATE
-    traces
+    ../../src/traces/traces.cpp
 )
 
 target_compile_options(test_traces

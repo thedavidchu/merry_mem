@@ -22,7 +22,7 @@ Trace::print() const
         std::cout << "remove(" << this->key << ", " << this->value << ")\n";
         break;
     default:
-        assert(0 && "impossible!");
+        assert(false && "impossible!");
     }
 }
 
@@ -76,7 +76,7 @@ generate_ordered_traces(const size_t max_num_unique_elements,
     LOG_INFO("generate_ordered_traces() with ratio " << insert_ratio << ":" <<
             search_ratio << ":" << remove_ratio);
     std::vector<Trace> traces;
-    // NOTE Add 1 to the reserved space because if we as for 10 elements but
+    // NOTE Add 1 to the reserved space because if we ask for 10 elements but
     //      have ratios {3.5,3.5,3}, then we would have {4,4,3} which adds to 11
     //      elements in total.
     traces.reserve(goal_trace_length + 1);

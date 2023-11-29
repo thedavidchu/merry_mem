@@ -1,3 +1,4 @@
+#include <array>
 #include <cassert>
 #include <iostream>
 #include <vector>
@@ -6,8 +7,9 @@
 
 /// Print out two traces
 int main() {
+    constexpr std::size_t trace_count = 10;
     std::vector<Trace> traces;
-    std::vector<Trace> random_oracle = {
+    std::array<Trace, trace_count> random_oracle = {
         {TraceOperator::insert, 2, 0},
         {TraceOperator::insert, 0, 1},
         {TraceOperator::remove, 2, 2},
@@ -19,7 +21,7 @@ int main() {
         {TraceOperator::remove, 0, 8},
         {TraceOperator::remove, 1, 9},
     };
-    std::vector<Trace> ordered_oracle = {
+    std::array<Trace, trace_count> ordered_oracle = {
         {TraceOperator::insert, 2, 0},
         {TraceOperator::insert, 0, 1},
         {TraceOperator::insert, 2, 2},

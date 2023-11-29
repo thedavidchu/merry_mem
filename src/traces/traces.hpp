@@ -20,11 +20,7 @@ struct Trace {
     void
     print() const;
 
-    inline bool
-    operator==(const Trace& rhs)
-    {
-        return this->op == rhs.op && this->key == rhs.key && this->value == rhs.value;
-    }
+    constexpr bool operator==(const Trace& rhs) const = default;
 };
 
 /// @brief  Create a trace of elements following the Zipfian distribution with
