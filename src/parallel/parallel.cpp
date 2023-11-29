@@ -183,32 +183,6 @@ ParallelRobinHoodHashTable::find(KeyType key)
     // TODO
 }
 
-void
-ParallelRobinHoodHashTable::add_thread_lock_manager()
-{
-    std::thread::id t_id = std::this_thread::get_id();
-    assert(!this->thread_managers_.contains(t_id) &&
-           "thread manager for current thread already exists");
-    this->thread_managers_.emplace(t_id, ThreadManager(this));
-}
-
-void
-ParallelRobinHoodHashTable::remove_thread_lock_manager()
-{
-    std::thread::id t_id = std::this_thread::get_id();
-    assert(this->thread_managers_.contains(t_id) &&
-           "thread manager for current thread DNE");
-    this->thread_managers_.erase(t_id);
-}
-
-/// @brief  Get real bucket index.
-static size_t
-get_real_index(const size_t home, const size_t offset, const size_t capacity)
-{
-    LOG_TRACE("Enter");
-    return (home + offset) % capacity;
-}
-
 std::pair<size_t, bool>
 ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
                                                  size_t start_index,
@@ -244,10 +218,8 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
 ThreadManager &
 ParallelRobinHoodHashTable::get_thread_lock_manager()
 {
-    std::thread::id t_id = std::this_thread::get_id();
-    assert(this->thread_managers_.contains(t_id) &&
-           "thread manager for current thread DNE");
-    return this->thread_managers_.at(t_id);
+    static thread_local ThreadManager manager(this);
+    return manager;
 }
 
 bool

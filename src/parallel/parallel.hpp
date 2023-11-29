@@ -138,14 +138,6 @@ public:
     std::pair<ValueType, bool>
     find(KeyType key);
 
-    /// Call this when adding a new thread to work on the hash table.
-    void
-    add_thread_lock_manager();
-
-    /// Call this when removing a worker thread that worked on the hash table.
-    void
-    remove_thread_lock_manager();
-
 private:
     std::vector<ParallelBucket> buckets_ = std::vector<ParallelBucket>(1024 + 10);
     std::vector<SegmentLock> segment_locks_;
