@@ -76,7 +76,9 @@ test_traces_on_sequential(const std::vector<Trace>& traces)
     }
 }
 
-void test_traces_on_parallel(const std::vector<Trace>& traces) {
+
+void 
+test_traces_on_parallel(const std::vector<Trace>& traces) {
     for (const auto& trace : traces) {
         switch (trace.op) {
             case TraceOperator::insert: {
@@ -108,14 +110,36 @@ void test_traces_on_parallel(const std::vector<Trace>& traces) {
 
 
 
+bool
+compare_hash_tables(const SequentialRobinHoodHashTable& sequentialTable,
+                         const parallelRobinHoodHashTable& parallelTable,
+                         const std::unordered_map<KeyType, ValueType>& map) {
 
-void compare_hash_tables(const ParallelBucket& hashTable, const std::vector<Trace>& traces) {
-    // Implementation for comparing the final state of the hash table
+    //add to unordered sets as order does not matter in them
+    std::unordered_set<ValueType> sequentialSet(sequentialTable.begin(), sequentialTable.end());
+    std::unordered_set<ValueType> parallelSet(parallelTable.begin(), parallelTable.end());
+    std::unordered_set<ValueType> unorderedMapSet(unorderedMap.begin(), unorderedMap.end());
+
+    //compare the unordered sets to determine if they have the same elements
+    bool areEqualSequential = (sequentialSet == unorderedMapSet);
+    bool areEqualParallel = (parallelSet == unorderedMapSet);
+
+    //print out results
+    if(areEqualSequential && areEqualParallel) {
+        std::cout << "Sequential and parallel hash tables are equal to the unordered map" << std::endl;
+        return 1;
+    } else if(areEqualSequential) {
+        std::cout << "Sequential hash table is equal to the unordered map" << std::endl;
+        return 0;
+    } else if(areEqualParallel) {
+        std::cout << "Parallel hash table is equal to the unordered map" << std::endl;
+        return 0;
+    } else {
+        std::cout << "Sequential and parallel hash tables are not equal to the unordered map" << std::endl;
+        return 0;
+        std::cout << "BOTH UNEQUAL" << std::endl;
+    }
 }
-
-
-
-
 
 
 int main(int argc, char** argv) {
@@ -127,6 +151,8 @@ int main(int argc, char** argv) {
     test_traces_on_unordered_map(traces);
     test_traces_on_sequential(traces);
     test_traces_on_parallel(traces);
+
+    compare_hash_tables(sequential_hash_table, parallel_hash_table, map);
 
     return 0;
 }
