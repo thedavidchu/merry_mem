@@ -12,7 +12,6 @@
 #include "../sequential/sequential.hpp"
 #include "../parallel/parallel.hpp"
 
-
 void
 run_sequential_performance_test(const std::vector<Trace> &traces)
 {
@@ -59,7 +58,7 @@ run_parallel_worker(ParallelRobinHoodHashTable &hash_table,
             break;
         }
         case TraceOperator::search: {
-            volatile std::optional<ValueType> r = hash_table.search(t.key);
+            volatile std::optional<ValueType> r = hash_table.find(t.key);
             break;
         }
         case TraceOperator::remove: {
