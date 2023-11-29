@@ -162,8 +162,7 @@ private:
     std::pair<size_t, bool>
     find_next_index_lock(ThreadManager &manager,
                          size_t start_index,
-                         KeyType key,
-                         size_t &distance_key);
+                         KeyType key);
 
     ThreadManager &
     get_thread_lock_manager();
