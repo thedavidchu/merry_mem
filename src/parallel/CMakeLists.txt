@@ -4,6 +4,12 @@ add_library(parallel
     parallel.hpp
 )
 
+# Forward this directory to dependents.
+target_include_directories(parallel
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 add_executable(parallel_exe
     main.cpp
 )
