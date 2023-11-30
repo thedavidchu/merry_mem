@@ -2,6 +2,7 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <functional>
 
 #include <ctime>
 
@@ -61,7 +62,7 @@ run_parallel_worker(ParallelRobinHoodHashTable &hash_table,
         case TraceOperator::search: {
             // NOTE Marking this as volatile means the compiler will not
             //      optimize this call out.
-            volatile std::optional<ValueType> r = hash_table.find(t.key);
+            volatile std::pair<long unsigned int, bool> r = hash_table.find(t.key);
             break;
         }
         case TraceOperator::remove: {
@@ -84,7 +85,7 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
     start_time = clock();
     ParallelRobinHoodHashTable hash_table;
     for (size_t i = 0; i < num_workers; ++i) {
-        workers.emplace_back(run_parallel_worker, hash_table, traces, i, num_workers);
+        workers.emplace_back(run_parallel_worker, std::ref(hash_table), std::ref(traces), i, num_workers);
     }
     for (auto &w : workers) {
         w.join();
@@ -95,7 +96,7 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
 }
 
 int main() {
-    std::vector<Trace> traces = generate_traces(100000, 100000000);
+    std::vector<Trace> traces = generate_random_traces(100000, 100000000);
     run_sequential_performance_test(traces);
     run_parallel_performance_test(traces, 1);
     run_parallel_performance_test(traces, 2);
