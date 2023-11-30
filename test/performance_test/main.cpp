@@ -103,7 +103,9 @@ int main(int argc, char *argv[]) {
     PerformanceTestArguments args = parse_performance_test_arguments(argc, argv);
     args.print();
     std::vector<Trace> traces = generate_random_traces(1000, 100000);
+    LOG_INFO("Finished generating traces");
     double seq_time_in_sec = run_sequential_performance_test(traces);
+    LOG_INFO("Finished sequential test");
     std::vector<double> parallel_time_in_sec;
 
     for (size_t w = 1; w <= 32; ++w) {
