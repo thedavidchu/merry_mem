@@ -15,6 +15,7 @@ target_compile_options(performance_test_exe
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}
+    -lpthread
 )
 
 # CMake flags for Release builds are suboptimal.
