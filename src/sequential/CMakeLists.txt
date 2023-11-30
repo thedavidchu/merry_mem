@@ -8,6 +8,7 @@ target_link_libraries(sequential_lib
     # This is public so that the common include files are recursively inherited
     PUBLIC
     common
+    utilities
 )
 
 # Forward this directory to dependents.
