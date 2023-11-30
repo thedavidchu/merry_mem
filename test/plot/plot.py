@@ -49,6 +49,8 @@ def run_performance_tests():
             insert_ratio=r[0],
             search_ratio=r[1],
             remove_ratio=r[2],
+            max_num_keys=max_num_keys,
+            goal_trace_length=goal_trace_length,
         )
 
 
@@ -61,12 +63,18 @@ def plot_performance(
     insert_ratio: int,
     search_ratio: int,
     remove_ratio: int,
+    max_num_keys: int,
+    goal_trace_length: int,
 ):
     """
     Plot the results of a performance test.
     """
-    title = f"Performance Test for {workload_name}\nwith insert:search:remove ratio {insert_ratio}:{search_ratio}:{remove_ratio}"
-    save_title = f"{workload_name}-{insert_ratio}:{search_ratio}:{remove_ratio}"
+    title = "\n".join([
+        f"Performance Test for {workload_name}",
+        f"with insert:search:remove ratio {insert_ratio}:{search_ratio}:{remove_ratio}",
+        f"with {max_num_keys} keys and {goal_trace_length} operations",
+    ])
+    save_title = f"{workload_name}-{insert_ratio}:{search_ratio}:{remove_ratio}-n{max_num_keys}-t{goal_trace_length}"
 
     # Set up the plot
     plt.figure()
@@ -92,6 +100,8 @@ def main():
         insert_ratio=1,
         search_ratio=1,
         remove_ratio=1,
+        max_num_keys=0,
+        goal_trace_length=0,
     )
     run_performance_tests()
 
