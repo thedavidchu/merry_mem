@@ -86,11 +86,6 @@ struct KeyValue {
 
 using ParallelBucket = std::atomic<KeyValue>;
 
-/// This ensures we are guaranteed to use atomic operations (instead of locks).
-/// This for performance (to follow the algorithm's 'fast-path') rather than for
-/// correctness.
-static_assert(ParallelBucket::is_always_lock_free);
-
 class ThreadManager {
 public:
     ThreadManager(class ParallelRobinHoodHashTable *const hash_table);
@@ -133,7 +128,7 @@ public:
     insert_or_update(KeyType key, ValueType value);
 
     bool
-    remove(KeyType key, ValueType value);
+    remove(KeyType key);
 
     std::pair<ValueType, bool>
     find(KeyType key);
@@ -168,10 +163,10 @@ private:
     get_thread_lock_manager();
 
     bool
-    compare_and_set_key_val(size_t index, KeyValue prev_kv, KeyValue new_kv);
+    compare_and_set_key_val(size_t index, KeyValue prev_kv, const KeyValue &new_kv);
 
     KeyValue
-    do_atomic_swap(KeyValue &swap_entry, size_t index);
+    do_atomic_swap(const KeyValue &swap_entry, size_t index);
 
     KeyValue
     atomic_load_key_val(size_t index);

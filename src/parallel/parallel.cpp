@@ -165,25 +165,26 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
         return true;
     }
     
-    // (fast path) search with RH invariant to see if can atomically update
-    size_t idx = home + 1;
-    KeyValue new_kv = {.key=key, .value=value};
-    for(size_t new_offset = 1; ; ++new_offset, ++idx){
-        KeyValue curr_kv = this->buckets_[idx].load();
-        size_t curr_offset = idx - hash(curr_kv.key);
-        if (curr_offset < new_offset){
-            break;
-        }
-        while(curr_kv.key == key) {
-            bool updated = this->compare_and_set_key_val(idx, curr_kv, new_kv);
-            if (updated == true) {
-                return true;
-            }
-        }
-    }
+    // TODO: (fast path) search with RH invariant to see if can atomically update
+    // size_t idx = home + 1;
+    // KeyValue new_kv = {.key=key, .value=value};
+    // for(size_t new_offset = 1; ; ++new_offset, ++idx){
+    //     KeyValue curr_kv = this->buckets_[idx].load();
+    //     size_t curr_offset = idx - hash(curr_kv.key);
+    //     if (curr_offset < new_offset){
+    //         break;
+    //     }
+    //     while(curr_kv.key == key) {
+    //         bool updated = this->compare_and_set_key_val(idx, curr_kv, new_kv);
+    //         if (updated == true) {
+    //             return true;
+    //         }
+    //     }
+    // }
 
     // now slow path
     ThreadManager manager = this->get_thread_lock_manager();
+    KeyValue new_kv = {.key=key, .value=value};
     ParallelBucket entry_to_insert(new_kv);
     auto [next_index, found] = this->find_next_index_lock(manager, home, key);
 
@@ -208,19 +209,25 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
 }
 
 bool
-ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
+ParallelRobinHoodHashTable::remove(KeyType key)
 {
     HashCodeType hashcode = hash(key);
     size_t home = get_home(hashcode, this->capacity_);
+
     // first try fast path
-    // TODO: Fast path
+    const KeyValue expected = this->atomic_load_key_val(home);
+    const KeyValue right_neighbor = this->atomic_load_key_val(home+1);
+    bool validRight = right_neighbor.key == bucket_empty_key || 
+            home+1 == hash(right_neighbor.key);
+    if (expected.key == key && validRight) {
+        KeyValue del_key = { .key = bucket_empty_key };
+        if (this->compare_and_set_key_val(home, expected, del_key)) {
+            return true;
+        }
+    }
 
     // now try slow path
-    KeyValue key_value = {.key=key, .value=value};
-    ParallelBucket entry_to_insert(key_value);
-
     ThreadManager manager = this->get_thread_lock_manager();
-
     auto[index, found] = this->find_next_index_lock(manager, home, key);
 
     if(!found) {
@@ -230,23 +237,22 @@ ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
 
     size_t next_index = index++;
     size_t curr_index = index;
-    
-    manager.lock(curr_index);
-    while(this->buckets_[next_index].offset > 0 && !entry_to_insert.is_empty()) {
+    manager.lock(next_index); 
+
+    size_t next_offset = next_index - get_home(hash(atomic_load_key_val(next_index).key), this->capacity_);
+    KeyValue empty_entry = {.key=bucket_empty_key}; 
+
+    // shift to the left
+    while(next_offset > 0) {
         manager.lock(next_index); 
-        ParallelBucket entry_to_move = this->do_atomic_swap(entry_to_insert, next_index); //na this is fucked up 
-        --entry_to_move.offset;
-        this->buckets_[curr_index] = entry_to_move;
+        KeyValue entry_to_move = this->do_atomic_swap(empty_entry, next_index); //na this is fucked up 
+        this->buckets_[curr_index].store(entry_to_move);
         curr_index = next_index;
         ++next_index;
+        next_offset = next_index - get_home(hash(atomic_load_key_val(next_index).key), this->capacity_);
     }
 
-    entry_to_insert.unlock();
-    ParallelBucket empty_entry; //does this do the default vals? 
-    this->buckets_[curr_index].key = empty_entry.key;
-    this->buckets_[curr_index].value = empty_entry.value;
-    this->buckets_[curr_index].hashcode = empty_entry.hashcode;
-    this->buckets_[curr_index].offset = empty_entry.offset;
+    this->buckets_[curr_index].store(empty_entry);
     manager.release_all_locks();
     return true;
 }
@@ -254,9 +260,9 @@ ParallelRobinHoodHashTable::remove(KeyType key, ValueType value)
 std::pair<ValueType, bool>
 ParallelRobinHoodHashTable::find(KeyType key)
 {
-    HashCodeType hashcode =this->hash(key);
-    size_t home = this->get_home(hashcode, this->capacity_);
-    ParallelBucket &zero_distance_key_pair = atomic_load_key_index(home);
+    HashCodeType hashcode = hash(key);
+    size_t home = get_home(hashcode, this->capacity_);
+    KeyValue zero_distance_key_pair = atomic_load_key_val(home);
 
     if(zero_distance_key_pair.key == key) {
         return {zero_distance_key_pair.key, true};
@@ -348,19 +354,13 @@ ParallelRobinHoodHashTable::get_thread_lock_manager()
 bool
 ParallelRobinHoodHashTable::compare_and_set_key_val(size_t index,
                                                     KeyValue prev_kv,
-                                                    KeyValue new_kv)
+                                                    const KeyValue &new_kv)
 {
     return this->buckets_[index].compare_exchange_strong(prev_kv, new_kv);
 }
 
 KeyValue
-ParallelRobinHoodHashTable::do_atomic_swap(KeyValue &swap_entry, size_t index)
-{
-    return this->buckets_[index].exchange(swap_entry);
-}
-
-ParallelBucket &
-ParallelRobinHoodHashTable::atomic_load_key_index(size_t index)
+ParallelRobinHoodHashTable::do_atomic_swap(const KeyValue &swap_entry, size_t index)
 {
     return this->buckets_[index].exchange(swap_entry);
 }
