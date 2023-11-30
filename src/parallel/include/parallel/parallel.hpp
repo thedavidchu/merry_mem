@@ -13,6 +13,7 @@
 #include "common/logger.hpp"
 #include "common/status.hpp"
 #include "common/types.hpp"
+#include "utility/utility.hpp"
 
 ////////////////////////////////////////////////////////////////////////////////
 /// HELPER CLASSES
@@ -86,10 +87,12 @@ struct KeyValue {
 
 using ParallelBucket = std::atomic<KeyValue>;
 
-/// This ensures we are guaranteed to use atomic operations (instead of locks).
-/// This for performance (to follow the algorithm's 'fast-path') rather than for
-/// correctness.
-static_assert(ParallelBucket::is_always_lock_free);
+/// We would want the following static assert here, because it would guarantee 
+/// that we use atomic operations, rather than locks, as per the MIT paper.
+/// However, we cannot include it because it asserts that ParallelBucket is 
+/// lock-free on ALL platforms, not just ours, and 16-byte atomics are not  
+/// supported on all platforms.
+/// static_assert(ParallelBucket::is_always_lock_free);
 
 class ThreadManager {
 public:
@@ -133,7 +136,7 @@ public:
     insert_or_update(KeyType key, ValueType value);
 
     bool
-    remove(KeyType key, ValueType value);
+    remove(KeyType key);
 
     std::pair<ValueType, bool>
     find(KeyType key);
@@ -162,17 +165,16 @@ private:
     std::pair<size_t, bool>
     find_next_index_lock(ThreadManager &manager,
                          size_t start_index,
-                         KeyType key,
-                         size_t &distance_key);
+                         KeyType key);
 
     ThreadManager &
     get_thread_lock_manager();
 
     bool
-    compare_and_set_key_val(size_t index, KeyValue prev_kv, KeyValue new_kv);
+    compare_and_set_key_val(size_t index, KeyValue prev_kv, const KeyValue &new_kv);
 
     KeyValue
-    do_atomic_swap(ParallelBucket &swap_entry, size_t index);
+    do_atomic_swap(const KeyValue &swap_entry, size_t index);
 
     KeyValue
     atomic_load_key_val(size_t index);

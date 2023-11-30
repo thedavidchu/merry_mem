@@ -8,6 +8,7 @@ target_link_libraries(performance_test_exe
     parallel_lib
     sequential_lib
     trace_lib
+    utility_lib
 )
 
 target_compile_options(performance_test_exe

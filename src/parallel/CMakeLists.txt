@@ -8,6 +8,7 @@ target_link_libraries(parallel_lib
     # This is public so that the common include files are recursively inherited
     PUBLIC
     common
+    utility_lib
 )
 
 # Forward this directory to dependents.
@@ -36,6 +37,13 @@ target_compile_options(parallel_exe
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}
 )
+
+if(UNIX)
+    target_link_libraries(parallel_lib
+        PRIVATE
+        atomic
+    )
+endif()
 
 # CMake flags for Release builds are suboptimal.
 # See: https://gitlab.kitware.com/cmake/cmake/-/issues/20812.

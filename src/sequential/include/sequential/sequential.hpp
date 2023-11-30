@@ -10,6 +10,7 @@
 #include "common/logger.hpp"
 #include "common/status.hpp"
 #include "common/types.hpp"
+#include "utility/utility.hpp"
 
 ////////////////////////////////////////////////////////////////////////////////
 /// HELPER CLASSES
@@ -42,17 +43,9 @@ struct SequentialBucket {
   print(const size_t capacity) const;
 };
 
-
 ////////////////////////////////////////////////////////////////////////////////
 /// STATIC HELPER FUNCTIONS
 ////////////////////////////////////////////////////////////////////////////////
-
-/// Source: https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
-HashCodeType
-hash(const KeyType key);
-
-size_t
-get_home(const HashCodeType hashcode, const size_t capacity);
 
 /// @brief  Get real bucket index.
 size_t
