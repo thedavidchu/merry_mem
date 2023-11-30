@@ -9,11 +9,12 @@ target_link_libraries(sequential
     common
 )
 
+    message(${CMAKE_SOURCE_DIR}/common/include)
 # Forward this directory to dependents.
 target_include_directories(sequential
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/common/include
+    ${CMAKE_SOURCE_DIR}/src/common/include
 )
 
 target_compile_options(sequential
