@@ -97,7 +97,6 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
     end_time = clock();
     double duration_in_seconds = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
     std::cout << "Time in sec: " << duration_in_seconds << std::endl;
-
     return duration_in_seconds;
 }
 
