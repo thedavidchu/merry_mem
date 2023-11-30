@@ -43,12 +43,9 @@ struct SequentialBucket {
   print(const size_t capacity) const;
 };
 
-
 ////////////////////////////////////////////////////////////////////////////////
 /// STATIC HELPER FUNCTIONS
 ////////////////////////////////////////////////////////////////////////////////
-
-/// Source: https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
 
 /// @brief  Get real bucket index.
 size_t

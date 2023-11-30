@@ -218,7 +218,7 @@ ParallelRobinHoodHashTable::remove(KeyType key)
     size_t next_offset = next_index - get_home(hash(atomic_load_key_val(next_index).key), this->capacity_);
     KeyValue empty_entry = {.key=bucket_empty_key}; 
 
-    // shift to the left
+    // Shift entries on the right of deleted entry to the left
     while(next_offset > 0) {
         manager.lock(next_index); 
         KeyValue entry_to_move = this->do_atomic_swap(empty_entry, next_index);
@@ -297,8 +297,8 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
                                                  KeyType key)
 {
     LOG_TRACE("Enter");
-    const size_t capacity = this->buckets_.size();
-    for (size_t i = 0; i < capacity; ++i) {
+    const size_t capacity_with_buffer = this->capacity_with_buffer_;
+    for (size_t i = 0; i < capacity_with_buffer; ++i) {
         const size_t real_index = start_index + i;
         if (real_index == capacity)
         {

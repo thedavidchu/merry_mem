@@ -1,5 +1,7 @@
 #include "utility/utility.hpp"
 
+/// Source: https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
+
 HashCodeType
 hash(const KeyType key) {
   LOG_TRACE("Enter");
@@ -14,7 +16,6 @@ hash(const KeyType key) {
   // overhead in this cast because HashCodeType is typedef'ed to size_t.
   return k;
 }
-
 
 size_t
 get_home(const HashCodeType hashcode, const size_t capacity) {
