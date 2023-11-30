@@ -392,7 +392,6 @@ ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_
 std::tuple<ValueType, bool, bool>
 ParallelRobinHoodHashTable::find_speculate(KeyType key, size_t start_index)
 {   
-    // TODO    
     bool speculative_success = false;
     bool found = false;
     ValueType value = 0; 
