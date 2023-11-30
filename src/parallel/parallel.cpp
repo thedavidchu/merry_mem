@@ -203,7 +203,7 @@ ParallelRobinHoodHashTable::remove(KeyType key)
         }
     }
 
-    // now try slow path
+    // Now try slow path
     ThreadManager manager = this->get_thread_lock_manager();
     auto[index, found] = this->find_next_index_lock(manager, home, key);
 
