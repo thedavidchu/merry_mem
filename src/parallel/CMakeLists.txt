@@ -37,6 +37,13 @@ target_compile_options(parallel_exe
     ${MM_EXTRA_WARN_FLAGS}
 )
 
+if(UNIX)
+    target_link_libraries(parallel
+        PRIVATE
+        atomic
+    )
+endif()
+
 # CMake flags for Release builds are suboptimal.
 # See: https://gitlab.kitware.com/cmake/cmake/-/issues/20812.
 # See: https://stackoverflow.com/questions/28178978/how-to-generate-pdb-files-for-release-build-with-cmake-flags.
