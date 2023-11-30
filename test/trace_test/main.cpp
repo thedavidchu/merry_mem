@@ -3,7 +3,7 @@
 #include <iostream>
 #include <vector>
 
-#include "traces/traces.hpp"
+#include "trace/trace.hpp"
 
 /// Print out two traces
 int main() {

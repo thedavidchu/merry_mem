@@ -8,7 +8,7 @@
 #include "common/logger.hpp"
 #include "common/status.hpp"
 #include "common/types.hpp"
-#include "traces/traces.hpp"
+#include "trace/trace.hpp"
 
 #include "sequential/sequential.hpp"
 #include "parallel/parallel.hpp"

@@ -24,6 +24,7 @@ endif()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    # TODO(glin): Do we need to add other directories here?
     PROPERTY VS_STARTUP_PROJECT sequential
 )
 set(CMAKE_VS_JUST_MY_CODE_DEBUGGING ON)

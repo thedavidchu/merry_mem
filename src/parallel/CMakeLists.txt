@@ -1,22 +1,22 @@
 # NOTE: We include header files to make them visible to IDEs.
-add_library(parallel
+add_library(parallel_lib
     parallel.cpp
     include/parallel/parallel.hpp
 )
 
-target_link_libraries(parallel
+target_link_libraries(parallel_lib
     # This is public so that the common include files are recursively inherited
     PUBLIC
     common
 )
 
 # Forward this directory to dependents.
-target_include_directories(parallel
+target_include_directories(parallel_lib
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_compile_options(parallel
+target_compile_options(parallel_lib
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}
@@ -28,7 +28,7 @@ add_executable(parallel_exe
 
 target_link_libraries(parallel_exe
     PRIVATE
-    parallel
+    parallel_lib
 )
 
 target_compile_options(parallel_exe
@@ -42,13 +42,13 @@ target_compile_options(parallel_exe
 # See: https://stackoverflow.com/questions/28178978/how-to-generate-pdb-files-for-release-build-with-cmake-flags.
 # TODO(glin): Can this be refactored into a function?
 if(MSVC)
-    target_compile_options(parallel
+    target_compile_options(parallel_lib
         PRIVATE
         $<$<CONFIG:Release>:/Zc:inline>
         $<$<CONFIG:Release>:/Zi>
         $<$<CONFIG:Release>:/Gy>
     )
-    target_link_options(parallel
+    target_link_options(parallel_lib
         PRIVATE
         $<$<CONFIG:Release>:/DEBUG>
         $<$<CONFIG:Release>:/INCREMENTAL:NO>
@@ -56,16 +56,16 @@ if(MSVC)
         $<$<CONFIG:Release>:/OPT:ICF>
     )
 elseif((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_ID MATCHES ".*Clang"))
-    target_compile_options(parallel
+    target_compile_options(parallel_lib
         PRIVATE
         $<$<CONFIG:Release>:-g>
     )
-    target_link_options(parallel
+    target_link_options(parallel_lib
         PRIVATE
         $<$<CONFIG:Release>:-g>
     )
     if(WIN32)
-        target_compile_options(parallel
+        target_compile_options(parallel_lib
             PRIVATE
             $<$<CONFIG:Release>:-gcodeview>
         )
