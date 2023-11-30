@@ -6,9 +6,9 @@
 #include <iostream>
 
 struct PerformanceTestArguments {
-    size_t insert_ratio = 1;
-    size_t search_ratio = 1;
-    size_t remove_ratio = 1;
+    unsigned insert_ratio = 1;
+    unsigned search_ratio = 1;
+    unsigned remove_ratio = 1;
     std::string trace_op_mode = "random";
     std::string output_json_path = "output.json";
 
@@ -61,11 +61,11 @@ parse_performance_test_arguments(int argc, char *argv[])
         if (matches_argument_flag(*argv, "-r", "--ratio")) {
             // NOTE There is no atoi equivalent for unsigned ints.
             ++argv;
-            args.insert_ratio = std::strtoul(*argv, nullptr, 10);
+            args.insert_ratio = static_cast<unsigned>(std::strtoul(*argv, nullptr, 10));
             ++argv;
-            args.search_ratio = std::strtoul(*argv, nullptr, 10);
+            args.search_ratio = static_cast<unsigned>(std::strtoul(*argv, nullptr, 10));
             ++argv;
-            args.remove_ratio = std::strtoul(*argv, nullptr, 10);
+            args.remove_ratio = static_cast<unsigned>(std::strtoul(*argv, nullptr, 10));
         } else if (matches_argument_flag(*argv, "-m", "--mode")) {
             ++argv;
             args.trace_op_mode = std::string(*argv);

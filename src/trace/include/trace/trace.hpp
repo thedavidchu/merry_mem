@@ -44,6 +44,6 @@ generate_random_traces(const size_t max_num_unique_elements,
 std::vector<Trace>
 generate_ordered_traces(const size_t max_num_unique_elements,
                         const size_t goal_trace_length,
-                        const double insert_ratio = 33.0,
-                        const double search_ratio = 33.0,
-                        const double remove_ratio = 33.0);
+                        const unsigned insert_ratio = 33,
+                        const unsigned search_ratio = 33,
+                        const unsigned remove_ratio = 33);
