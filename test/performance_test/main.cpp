@@ -5,13 +5,13 @@
 
 #include <ctime>
 
-#include "../../src/common/logger.hpp"
-#include "../../src/common/status.hpp"
-#include "../../src/common/types.hpp"
-#include "../../src/traces/traces.hpp"
+#include "common/logger.hpp"
+#include "common/status.hpp"
+#include "common/types.hpp"
+#include "traces/traces.hpp"
 
-#include "../../src/sequential/sequential.hpp"
-#include "../../src/parallel/parallel.hpp"
+#include "sequential/sequential.hpp"
+#include "parallel/parallel.hpp"
 
 void
 run_sequential_performance_test(const std::vector<Trace> &traces)
