@@ -14,6 +14,126 @@
 #include "sequential/sequential.hpp"
 #include "parallel/parallel.hpp"
 
+////////////////////////////////////////////////////////////////////////////////
+/// ARGUMENT PARSER
+////////////////////////////////////////////////////////////////////////////////
+
+#include <iostream>
+
+struct PerformanceTestArguments {
+    insert_ratio = 1;
+    search_ratio = 1;
+    remove_ratio = 1;
+    trace_op_mode = "random"
+    std::string output_json_path = "output.json";
+
+    void
+    print() const
+    {
+        std::cout << "Mode: '" << this->trace_op_mode << "', Ratios: " <<
+                this->insert_ratio << ":" << this->search_ratio << ":" << this->remove_ratio <<
+                ", Output: " << this->output_json_path << std::endl;
+    }
+};
+
+static void
+print_help_and_exit(PerformanceTestArguments &args)
+{
+    std::cout << "--------------------------------------------------------------------------------" << std::endl;
+    std::cout << "You asked for help!" << std::endl;
+    std::cout << "-------------------" << std::endl;
+    std::cout << "-r, --ratio <num> <num> <num> : the ratio or insert:search:remove operations. [Default " << args.insert_ratio << ":" << args.search_ratio << ":" << args.remove_ratio << "]" << std::endl;
+    std::cout << "-m, --mode <mode> : trace generator mode {random,ordered} for the trace operations. [Default '" << args.trace_op_mode << "']" << std::endl;
+    std::cout << "                    N.B. The option is just the raw string 'random' or 'ordered' without the quotation marks!" << std::endl;
+    std::cout << "-o, --output <output-path> : path for the output JSON file relative to cwd. [Default '" << args.output_json_path << "']" << std::endl;
+    std::cout << "-h, --help : print this help message. This overrides all other arguments!" << std::endl;
+    std::cout << "--------------------------------------------------------------------------------" << std::endl;
+    exit(1);
+}
+
+static bool
+matches_argument_flag(char *input_flag, std::string short_flag, std::string long_flag)
+{
+    return std::strcmp(input_flag, short_flag.c_str()) == 0 ||
+            std::strcmp(input_flag, long_flag.c_str()) == 0;
+}
+
+PerformanceTestArguments
+parse_performance_test_arguments(int argc, char *argv[])
+{
+    PerformanceTestArguments args;
+
+    // Check for help! Do this first because asking for help will override
+    // all other directives.
+    for (size_t i = 0; i < argc; ++i) {
+        if (matches_argument_flag(argv[i], "-h", "--help")) {
+            print_help_and_exit();
+        }
+    }
+
+    // Check for regular variables
+    for (argv = &argv[1]; *argv != nullptr; ++argv) {
+        if (matches_argument_flag(*argv, "-r", "--ratio")) {
+            // NOTE There is no atoi equivalent for unsigned ints.
+            ++argv;
+            args.insert_ratio = std::strtoul(*argv, nullptr, 10);
+            ++argv;
+            args.search_ratio = std::strtoul(*argv, nullptr, 10);
+            ++argv;
+            args.remove_ratio = std::strtoul(*argv, nullptr, 10);
+            assert(args.insert_ratio >= 0 && args.search_ratio >= 0 &&
+                    args.remove_ratio >= 0 && "ratios should not be negative");
+        } else if (matches_argument_flag(*argv, "-m", "--mode")) {
+            ++argv;
+            args.trace_op_mode = std::string(*argv);
+            assert((args.trace_op_mode == "random" || args.trace_op_mode == "ordered") &&
+                    "mode should be {random,ordered}")
+        } else if (matches_argument_flag(*argv, "-o", "--output")) {
+            ++argv;
+            args.output_json_path = std::string(*argv);
+        } else {
+            print_help_and_exit();
+        }
+    }
+
+    return args;
+}
+
+#include <fstream>
+#include <iostream>
+
+void
+record_performance_test_times(const PerformanceTestArguments &args,
+                              const double seq_time_sec,
+                              const std::vector<double> & par_time_sec)
+{
+    // Open file
+    std::ofstream ostrm(args.output_json_path);
+    if (!ostrm.is_open()) {
+        std::cerr << "Cannot open " << args.output_json_path << std::endl;
+        return;
+    }
+
+    ostrm << "{"
+    ostrm << "\"sequential\": " << seq_time_sec << ",";
+    ostrm << "\"parallel\": ["
+    for (size_t i = 0; i < par_time_sec.size(); ++i) {
+        ostrm << par_time_sec[i];
+        // NOTE JSON does not allow trailing commas at the end of arrays, so
+        //      skip the last element.
+        if (i != par_time_sec.size() - 1) {
+            ostrm << ", ";
+        }
+    }
+    ostrm << "]";
+    ostrm << "}\n";
+    ostrm.close();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// TRACE RUNNER
+////////////////////////////////////////////////////////////////////////////////
+
 void
 run_sequential_performance_test(const std::vector<Trace> &traces)
 {
@@ -95,15 +215,19 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
     std::cout << "Time in sec: " << duration_in_seconds << std::endl;
 }
 
-int main() {
-    std::vector<Trace> traces = generate_random_traces(100000, 100000000);
-    run_sequential_performance_test(traces);
-    run_parallel_performance_test(traces, 1);
-    run_parallel_performance_test(traces, 2);
-    run_parallel_performance_test(traces, 4);
-    run_parallel_performance_test(traces, 8);
-    run_parallel_performance_test(traces, 16);
-    run_parallel_performance_test(traces, 32);
+int main(int argc, char *argv[]) {
+    PerformanceTestArguments args = parse_performance_test_arguments(argc, argv);
+    args.print();
+    std::vector<Trace> traces = generate_traces(100000, 100000000);
+    double seq_time_in_sec = run_sequential_performance_test(traces);
+    std::vector<double> parallel_time_in_sec;
+
+    for (size_t w = 1; w <= 32; ++w) {
+        double time = run_parallel_performance_test(traces, w);
+        parallel_time_in_sec.push_back(time);
+    }
+
+    record_performance_test_times(args, seq_time_in_sec, parallel_time_in_sec);
 
     return 0;
 }
