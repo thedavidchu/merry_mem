@@ -1,7 +1,7 @@
 # NOTE: We include header files to make them visible to IDEs.
 add_library(traces
     traces.cpp
-    traces.hpp
+    include/traces/traces.hpp
     uniform_random.hpp
     zipfian_random.hpp
 )
@@ -13,8 +13,9 @@ target_compile_options(traces
 )
 
 # Forward this directory to dependents.
-target_include_directories(traces PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
+target_include_directories(traces
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PUBLIC ${CMAKE_SOURCE_DIR}/include
 )
 
 # CMake flags for Release builds are suboptimal.

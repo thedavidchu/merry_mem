@@ -8,11 +8,6 @@ target_link_libraries(trace_test
     traces
 )
 
-# Forward this directory to dependents.
-target_include_directories(trace_test PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
-)
-
 target_compile_options(trace_test
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}

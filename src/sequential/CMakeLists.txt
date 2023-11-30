@@ -1,7 +1,7 @@
 # NOTE: We include header files to make them visible to IDEs.
 add_library(sequential
     sequential.cpp
-    sequential.hpp
+    include/sequential/sequential.hpp
 )
 
 target_link_libraries(sequential
@@ -10,8 +10,9 @@ target_link_libraries(sequential
 )
 
 # Forward this directory to dependents.
-target_include_directories(sequential PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
+target_include_directories(sequential
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PUBLIC ${CMAKE_SOURCE_DIR}/include
 )
 
 target_compile_options(sequential

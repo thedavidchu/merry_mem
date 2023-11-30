@@ -1,12 +1,13 @@
 # NOTE: We include header files to make them visible to IDEs.
 add_library(parallel
     parallel.cpp
-    parallel.hpp
+    include/parallel/parallel.hpp
 )
 
 # Forward this directory to dependents.
-target_include_directories(parallel PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
+target_include_directories(parallel
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PUBLIC ${CMAKE_SOURCE_DIR}/include
 )
 
 target_compile_options(parallel

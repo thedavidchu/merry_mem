@@ -1,6 +1,6 @@
 #include <cassert>
 
-#include "parallel.hpp"
+#include "parallel/parallel.hpp"
 
 constexpr unsigned indices_per_segment = 16;
 

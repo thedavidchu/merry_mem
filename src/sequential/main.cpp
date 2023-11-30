@@ -1,7 +1,7 @@
 #include <iostream>
 #include <optional>
 
-#include "sequential.hpp"
+#include "sequential/sequential.hpp"
 
 
 int main() {

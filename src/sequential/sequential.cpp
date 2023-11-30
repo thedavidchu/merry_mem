@@ -1,6 +1,6 @@
 #include <algorithm>  // std::swap
 
-#include "sequential.hpp"
+#include "sequential/sequential.hpp"
 
 
 ////////////////////////////////////////////////////////////////////////////////

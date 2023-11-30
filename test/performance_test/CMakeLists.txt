@@ -8,11 +8,6 @@ target_link_libraries(performance_test
     parallel sequential traces
 )
 
-# Forward this directory to dependents.
-target_include_directories(performance_test PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
-)
-
 target_compile_options(performance_test
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
