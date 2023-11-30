@@ -191,7 +191,7 @@ ParallelRobinHoodHashTable::remove(KeyType key)
     HashCodeType hashcode = hash(key);
     size_t home = get_home(hashcode, this->capacity_);
 
-    // first try fast path
+    // First, try fast path
     const KeyValue expected = this->atomic_load_key_val(home);
     const KeyValue right_neighbor = this->atomic_load_key_val(home+1);
     bool validRight = right_neighbor.key == bucket_empty_key || 
