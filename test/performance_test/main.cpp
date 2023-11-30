@@ -14,7 +14,10 @@
 #include "sequential/sequential.hpp"
 #include "parallel/parallel.hpp"
 
-void
+#include "argument_parser.hpp"
+#include "recorder.hpp"
+
+double
 run_sequential_performance_test(const std::vector<Trace> &traces)
 {
     clock_t start_time, end_time;
@@ -43,6 +46,7 @@ run_sequential_performance_test(const std::vector<Trace> &traces)
     end_time = clock();
     double duration_in_seconds = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
     std::cout << "Time in sec: " << duration_in_seconds << std::endl;
+    return ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
 }
 
 void
@@ -95,15 +99,30 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
     std::cout << "Time in sec: " << duration_in_seconds << std::endl;
 }
 
-int main() {
-    std::vector<Trace> traces = generate_random_traces(100000, 100000000);
-    run_sequential_performance_test(traces);
-    run_parallel_performance_test(traces, 1);
-    run_parallel_performance_test(traces, 2);
-    run_parallel_performance_test(traces, 4);
-    run_parallel_performance_test(traces, 8);
-    run_parallel_performance_test(traces, 16);
-    run_parallel_performance_test(traces, 32);
+int main(int argc, char *argv[]) {
+    PerformanceTestArguments args = parse_performance_test_arguments(argc, argv);
+    args.print();
+
+    std::vector<Trace> traces;
+    if (args.trace_op_mode == "random") {
+        traces = generate_random_traces(args.max_num_keys, args.goal_trace_length,
+                args.insert_ratio, args.search_ratio, args.remove_ratio);
+    } else if (args.trace_op_mode == "ordered") {
+        traces = generate_ordered_traces(args.max_num_keys, args.goal_trace_length,
+                args.insert_ratio, args.search_ratio, args.remove_ratio);
+    }
+    LOG_INFO("Finished generating traces");
+
+    double seq_time_in_sec = run_sequential_performance_test(traces);
+    LOG_INFO("Finished sequential test");
+
+    std::vector<double> parallel_time_in_sec;
+    for (size_t w = 1; w <= 32; ++w) {
+        double time = run_parallel_performance_test(traces, w);
+        parallel_time_in_sec.push_back(time);
+    }
+
+    record_performance_test_times(args, seq_time_in_sec, parallel_time_in_sec);
 
     return 0;
 }

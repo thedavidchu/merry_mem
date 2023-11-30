@@ -69,9 +69,9 @@ generate_random_traces(const size_t max_num_unique_elements,
 std::vector<Trace>
 generate_ordered_traces(const size_t max_num_unique_elements,
                         const size_t goal_trace_length,
-                        const double insert_ratio,
-                        const double search_ratio,
-                        const double remove_ratio)
+                        const unsigned insert_ratio,
+                        const unsigned search_ratio,
+                        const unsigned remove_ratio)
 {
     LOG_INFO("generate_ordered_traces() with ratio " << insert_ratio << ":" <<
             search_ratio << ":" << remove_ratio);
@@ -81,15 +81,15 @@ generate_ordered_traces(const size_t max_num_unique_elements,
     //      elements in total.
     traces.reserve(goal_trace_length + 1);
     foedus::assorted::ZipfianRandom zrng(max_num_unique_elements, /*theta=*/0.5, /*urnd_seed=*/0);
-    const double sum_of_ratios = insert_ratio + search_ratio + remove_ratio;
+    const double sum_of_ratios = static_cast<double>(insert_ratio + search_ratio + remove_ratio);
     if (sum_of_ratios < 0) {
         assert(sum_of_ratios > 0 && "should be positive number");
         return traces;
     }
     // NOTE This will not necessarily produce the goal trace length.
-    const size_t num_inserts = static_cast<size_t>(std::lround(insert_ratio / sum_of_ratios * static_cast<double>(goal_trace_length)));
-    const size_t num_searches = static_cast<size_t>(std::lround(search_ratio / sum_of_ratios * static_cast<double>(goal_trace_length)));
-    const size_t num_removes = static_cast<size_t>(std::lround(remove_ratio / sum_of_ratios * static_cast<double>(goal_trace_length)));
+    const size_t num_inserts = static_cast<size_t>(std::lround(static_cast<double>(insert_ratio) / sum_of_ratios * static_cast<double>(goal_trace_length)));
+    const size_t num_searches = static_cast<size_t>(std::lround(static_cast<double>(search_ratio) / sum_of_ratios * static_cast<double>(goal_trace_length)));
+    const size_t num_removes = static_cast<size_t>(std::lround(static_cast<double>(remove_ratio) / sum_of_ratios * static_cast<double>(goal_trace_length)));
     LOG_INFO("Ratio of ops" << num_inserts << ":" << num_searches << ":" << num_removes);
 
     ValueType value = 0;
