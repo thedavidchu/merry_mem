@@ -166,7 +166,7 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
     auto [next_index, found] = this->find_next_index_lock(manager, home, key);
 
     // locked search + update 
-    if(found){
+    if (found) {
         bool updated = this->compare_and_set_key_val(next_index, this->buckets_[next_index].load(), new_kv);
         if (updated == true) {
             manager.release_all_locks();
