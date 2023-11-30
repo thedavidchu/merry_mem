@@ -300,7 +300,7 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
     const size_t capacity_with_buffer = this->capacity_with_buffer_;
     for (size_t i = 0; i < capacity_with_buffer; ++i) {
         const size_t real_index = start_index + i;
-        if (real_index == capacity)
+        if (real_index == capacity_with_buffer)
         {
             assert("the map should never be completely full" && false);
             return {SIZE_MAX, false};
