@@ -139,6 +139,10 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
     }
     
     // TODO: (fast path) search with RH invariant to see if can atomically update
+    // Currently commented out because we need to handle the edge case when the
+    // fast-path update encounters a section of the table that is currently deleting
+    // and shifting over elements.
+
     // size_t idx = home + 1;
     // KeyValue new_kv = {.key=key, .value=value};
     // for(size_t new_offset = 1; ; ++new_offset, ++idx){
