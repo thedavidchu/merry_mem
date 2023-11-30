@@ -19,6 +19,8 @@ struct PerformanceTestArguments {
     {
         std::cout << "Mode: '" << this->trace_op_mode << "', Ratios: " <<
                 this->insert_ratio << ":" << this->search_ratio << ":" << this->remove_ratio <<
+                ", Max # Keys: " << this->max_num_keys <<
+                ", Goal Trace Length: " << this->goal_trace_length <<
                 ", Output: " << this->output_json_path << std::endl;
     }
 };
