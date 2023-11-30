@@ -18,13 +18,14 @@
 /// ARGUMENT PARSER
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <cstring>
 #include <iostream>
 
 struct PerformanceTestArguments {
-    insert_ratio = 1;
-    search_ratio = 1;
-    remove_ratio = 1;
-    trace_op_mode = "random"
+    size_t insert_ratio = 1;
+    size_t search_ratio = 1;
+    size_t remove_ratio = 1;
+    std::string trace_op_mode = "random";
     std::string output_json_path = "output.json";
 
     void
@@ -65,9 +66,9 @@ parse_performance_test_arguments(int argc, char *argv[])
 
     // Check for help! Do this first because asking for help will override
     // all other directives.
-    for (size_t i = 0; i < argc; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(argc); ++i) {
         if (matches_argument_flag(argv[i], "-h", "--help")) {
-            print_help_and_exit();
+            print_help_and_exit(args);
         }
     }
 
@@ -81,18 +82,19 @@ parse_performance_test_arguments(int argc, char *argv[])
             args.search_ratio = std::strtoul(*argv, nullptr, 10);
             ++argv;
             args.remove_ratio = std::strtoul(*argv, nullptr, 10);
-            assert(args.insert_ratio >= 0 && args.search_ratio >= 0 &&
-                    args.remove_ratio >= 0 && "ratios should not be negative");
         } else if (matches_argument_flag(*argv, "-m", "--mode")) {
             ++argv;
             args.trace_op_mode = std::string(*argv);
             assert((args.trace_op_mode == "random" || args.trace_op_mode == "ordered") &&
-                    "mode should be {random,ordered}")
+                    "mode should be {random,ordered}");
         } else if (matches_argument_flag(*argv, "-o", "--output")) {
             ++argv;
             args.output_json_path = std::string(*argv);
         } else {
-            print_help_and_exit();
+            // NOTE We create a new default argument structure because we
+            //      potentially already modified the other structure.
+            PerformanceTestArguments default_args;
+            print_help_and_exit(default_args);
         }
     }
 
@@ -101,6 +103,7 @@ parse_performance_test_arguments(int argc, char *argv[])
 
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 void
 record_performance_test_times(const PerformanceTestArguments &args,
@@ -114,9 +117,9 @@ record_performance_test_times(const PerformanceTestArguments &args,
         return;
     }
 
-    ostrm << "{"
+    ostrm << "{";
     ostrm << "\"sequential\": " << seq_time_sec << ",";
-    ostrm << "\"parallel\": ["
+    ostrm << "\"parallel\": [";
     for (size_t i = 0; i < par_time_sec.size(); ++i) {
         ostrm << par_time_sec[i];
         // NOTE JSON does not allow trailing commas at the end of arrays, so
@@ -134,7 +137,7 @@ record_performance_test_times(const PerformanceTestArguments &args,
 /// TRACE RUNNER
 ////////////////////////////////////////////////////////////////////////////////
 
-void
+double
 run_sequential_performance_test(const std::vector<Trace> &traces)
 {
     clock_t start_time, end_time;
@@ -163,6 +166,7 @@ run_sequential_performance_test(const std::vector<Trace> &traces)
     end_time = clock();
     double duration_in_seconds = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
     std::cout << "Time in sec: " << duration_in_seconds << std::endl;
+    return ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
 }
 
 void
@@ -218,7 +222,7 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
 int main(int argc, char *argv[]) {
     PerformanceTestArguments args = parse_performance_test_arguments(argc, argv);
     args.print();
-    std::vector<Trace> traces = generate_traces(100000, 100000000);
+    std::vector<Trace> traces = generate_random_traces(100000, 100000000);
     double seq_time_in_sec = run_sequential_performance_test(traces);
     std::vector<double> parallel_time_in_sec;
 
