@@ -218,7 +218,7 @@ ParallelRobinHoodHashTable::remove(KeyType key)
     const KeyValue expected = this->atomic_load_key_val(home);
     const KeyValue right_neighbor = this->atomic_load_key_val(home+1);
     bool validRight = right_neighbor.key == bucket_empty_key || 
-            home+1 == hash(right_neighbor.key);
+            home+1 == get_home(hash(right_neighbor.key), this->capacity_);
     if (expected.key == key && validRight) {
         KeyValue del_key = { .key = bucket_empty_key };
         if (this->compare_and_set_key_val(home, expected, del_key)) {
@@ -307,13 +307,6 @@ ParallelRobinHoodHashTable::remove_thread_lock_manager()
     this->thread_managers_.erase(t_id);
 }
 
-/// @brief  Get real bucket index.
-static size_t
-get_real_index(const size_t home, const size_t offset, const size_t capacity)
-{
-    LOG_TRACE("Enter");
-    return (home + offset) % capacity; 
-}
 
 std::pair<size_t, bool>
 ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
@@ -323,12 +316,15 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
     LOG_TRACE("Enter");
     const size_t capacity = this->buckets_.size();
     for (size_t i = 0; i < capacity; ++i) {
-        const size_t real_index = get_real_index(start_index, i, capacity);
+        const size_t real_index = start_index + i;
+        if (real_index == capacity)
+        {
+            assert("the map should never be completely full" && false);
+            return {SIZE_MAX, false};
+        }
         manager.lock(real_index);
 
         const KeyValue pair = this->atomic_load_key_val(real_index);
-        const size_t home = hash(pair.key);
-        const size_t offset = real_index - home;
 
         if (pair.key == bucket_empty_key) {
             // This is first, because equality on an empty bucket is not well defined.
@@ -397,8 +393,6 @@ ParallelRobinHoodHashTable::distance_zero_insert(KeyType key,
 bool
 ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_t swap_index)
 {
-    // TODO
-    size_t swap_index = index;
     KeyValue entry_to_swap = entry_to_insert;
     ThreadManager manager = this->get_thread_lock_manager(); 
     while(true) {
@@ -406,12 +400,9 @@ ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_
         if(entry_to_swap.key == bucket_empty_key) { //size max is empty 
             return true;
         }
-
         auto [next_swap_index, found] = this->find_next_index_lock(manager, swap_index, entry_to_swap.key);
         swap_index = next_swap_index;
     }
-
-    //add conditional check to check is found or not?
 }
 
 std::tuple<ValueType, bool, bool>
