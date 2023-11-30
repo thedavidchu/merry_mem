@@ -15,7 +15,7 @@ The project is structured as follows:
 |  |                      check executable)
 |  |--sequential/       : Sequential implementation (library and simple sanity
 |  |                      check executable)
-|  `--traces/           : Code for generating traces to test our implementations
+|  `--trace/           : Code for generating traces to test our implementations
 `--test/
    |--performance_test/ : Benchmark the sequential vs the parallel parallel
    |                      implementations with different traces and different

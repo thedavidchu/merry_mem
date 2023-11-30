@@ -7,7 +7,7 @@ target_link_libraries(performance_test_exe
     PRIVATE
     parallel_lib
     sequential_lib
-    traces_lib
+    trace_lib
 )
 
 target_compile_options(performance_test_exe

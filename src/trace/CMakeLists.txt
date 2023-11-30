@@ -1,24 +1,24 @@
 # NOTE: We include header files to make them visible to IDEs.
-add_library(traces_lib
-    traces.cpp
-    include/traces/traces.hpp
+add_library(trace_lib
+    trace.cpp
+    include/trace/trace.hpp
     uniform_random.hpp
     zipfian_random.hpp
 )
 
-target_link_libraries(traces_lib
+target_link_libraries(trace_lib
     # This is public so that the common include files are recursively inherited
     PUBLIC
     common
 )
 
 # Forward this directory to dependents.
-target_include_directories(traces_lib
+target_include_directories(trace_lib
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_compile_options(traces_lib
+target_compile_options(trace_lib
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}
@@ -29,13 +29,13 @@ target_compile_options(traces_lib
 # See: https://stackoverflow.com/questions/28178978/how-to-generate-pdb-files-for-release-build-with-cmake-flags.
 # TODO(glin): Can this be refactored into a function?
 if(MSVC)
-    target_compile_options(traces_lib
+    target_compile_options(trace_lib
         PRIVATE
         $<$<CONFIG:Release>:/Zc:inline>
         $<$<CONFIG:Release>:/Zi>
         $<$<CONFIG:Release>:/Gy>
     )
-    target_link_options(traces_lib
+    target_link_options(trace_lib
         PRIVATE
         $<$<CONFIG:Release>:/DEBUG>
         $<$<CONFIG:Release>:/INCREMENTAL:NO>
@@ -43,16 +43,16 @@ if(MSVC)
         $<$<CONFIG:Release>:/OPT:ICF>
     )
 elseif((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_ID MATCHES ".*Clang"))
-    target_compile_options(traces_lib
+    target_compile_options(trace_lib
         PRIVATE
         $<$<CONFIG:Release>:-g>
     )
-    target_link_options(traces_lib
+    target_link_options(trace_lib
         PRIVATE
         $<$<CONFIG:Release>:-g>
     )
     if(WIN32)
-        target_compile_options(traces_lib
+        target_compile_options(trace_lib
             PRIVATE
             $<$<CONFIG:Release>:-gcodeview>
         )

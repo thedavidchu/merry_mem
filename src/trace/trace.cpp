@@ -6,7 +6,7 @@
 #include "uniform_random.hpp"
 #include "zipfian_random.hpp"
 
-#include "traces/traces.hpp"
+#include "trace/trace.hpp"
 
 void
 Trace::print() const
@@ -27,7 +27,7 @@ Trace::print() const
 }
 
 std::vector<Trace>
-generate_random_traces(const size_t max_num_unique_elements,
+generate_random_trace(const size_t max_num_unique_elements,
                        const size_t trace_length,
                        const unsigned insert_ratio,
                        const unsigned search_ratio,

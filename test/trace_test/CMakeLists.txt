@@ -5,7 +5,7 @@ add_executable(trace_test_exe
 
 target_link_libraries(trace_test_exe
     PRIVATE
-    traces_lib
+    trace_lib
 )
 
 target_compile_options(trace_test_exe
