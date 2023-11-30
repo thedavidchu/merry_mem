@@ -260,31 +260,38 @@ ParallelRobinHoodHashTable::remove(KeyType key)
 std::pair<ValueType, bool>
 ParallelRobinHoodHashTable::find(KeyType key)
 {
+    // first try fast path
     HashCodeType hashcode = hash(key);
     size_t home = get_home(hashcode, this->capacity_);
     KeyValue zero_distance_key_pair = atomic_load_key_val(home);
 
-    if(zero_distance_key_pair.key == key) {
+    if (zero_distance_key_pair.key == key) {
         return {zero_distance_key_pair.key, true};
     }
-    if(zero_distance_key_pair.offset == 0) {
+    if (home == get_home(hash(zero_distance_key_pair.key), this->capacity_)) {
         return {-1, false};
     }
     
     size_t tries = 0;
-    //ValueType value_copy = 0;
-    while (tries < MAX_TRIES) {
+    ValueType value = 0;
+    bool found = false;
+    bool speculative_success = false;
+    // As dictated by Griffin and David.
+    constexpr size_t max_tries = 10;
+
+    while (tries < max_tries) {
         tries++;
-        auto [value, found, speculative_success] = this->find_speculate(key, home);
+        std::tie(value, found, speculative_success) = this->find_speculate(key, home);
 
         if (speculative_success) {
             return {value, found};
         }
     }
-    ParallelBucket &entry_to_find = {.key = key, .value = value_copy, .hashcode = hashcode, .offset = 0};
+
     ThreadManager &manager = this->get_thread_lock_manager();
-    auto [index, found] = this->find_next_index_lock(manager, home, key, entry_to_find.offset);
-    ValueType value = this->buckets_[index].value;
+    size_t index = 0;
+    std::tie(index, found) = this->find_next_index_lock(manager, home, key);
+    value = this->buckets_[index].load().value;
     manager.release_all_locks();
     return {value, found};
 }
@@ -409,20 +416,25 @@ std::tuple<ValueType, bool, bool>
 ParallelRobinHoodHashTable::find_speculate(KeyType key, size_t start_index)
 {   
     // TODO    
-    bool speculative_sucess = false;
+    bool speculative_success = false;
     bool found = false;
     ValueType value = 0; 
     size_t index = start_index;
     ThreadManager manager = this->get_thread_lock_manager();
+    
+    size_t offset = index - get_home(hash(atomic_load_key_val(index).key), this->capacity_);
 
-    for(size_t distance = 0; this->buckets_[index].offset >= distance; ++distance, ++index){
-        manager.speculate_index(index);
-        if(this->buckets_[index].key == key){
-            value = this->buckets_[index].value;
+    for(size_t distance = 0; offset >= distance; ++distance){
+        (void)manager.speculate_index(index);
+        KeyValue current_bucket = atomic_load_key_val(index);
+        if(current_bucket.key == key){
+            value = current_bucket.value;
             found = true;
             break;
         }
+        ++index;
+        offset = index - get_home(hash(atomic_load_key_val(index).key), this->capacity_);
     }
-    speculative_sucess = manager.finish_speculate();
-    return std::make_tuple(value, found, speculative_sucess);
+    speculative_success = manager.finish_speculate();
+    return std::make_tuple(value, found, speculative_success);
 }
