@@ -159,7 +159,7 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
     //     }
     // }
 
-    // now slow path
+    // Slow path: locked insert
     ThreadManager manager = this->get_thread_lock_manager();
     KeyValue new_kv = {.key=key, .value=value};
     ParallelBucket entry_to_insert(new_kv);
