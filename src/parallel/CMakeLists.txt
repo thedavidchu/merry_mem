@@ -4,11 +4,16 @@ add_library(parallel
     include/parallel/parallel.hpp
 )
 
+target_link_libraries(parallel
+    # This is public so that the common include files are recursively inherited
+    PUBLIC
+    common
+)
+
 # Forward this directory to dependents.
 target_include_directories(parallel
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/common/include
 )
 
 target_compile_options(parallel

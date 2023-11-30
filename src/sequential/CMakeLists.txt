@@ -5,16 +5,15 @@ add_library(sequential
 )
 
 target_link_libraries(sequential
-    PRIVATE
+    # This is public so that the common include files are recursively inherited
+    PUBLIC
     common
 )
 
-    message(${CMAKE_SOURCE_DIR}/common/include)
 # Forward this directory to dependents.
 target_include_directories(sequential
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src/common/include
 )
 
 target_compile_options(sequential

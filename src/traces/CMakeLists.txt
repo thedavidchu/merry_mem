@@ -6,17 +6,22 @@ add_library(traces
     zipfian_random.hpp
 )
 
-target_compile_options(traces
-    PRIVATE
-    ${MM_REQUIRED_WARN_FLAGS}
-    ${MM_EXTRA_WARN_FLAGS}
+target_link_libraries(traces
+    # This is public so that the common include files are recursively inherited
+    PUBLIC
+    common
 )
 
 # Forward this directory to dependents.
 target_include_directories(traces
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/common/include
+)
+
+target_compile_options(traces
+    PRIVATE
+    ${MM_REQUIRED_WARN_FLAGS}
+    ${MM_EXTRA_WARN_FLAGS}
 )
 
 # CMake flags for Release builds are suboptimal.
