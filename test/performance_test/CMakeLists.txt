@@ -5,7 +5,9 @@ add_executable(performance_test
 
 target_link_libraries(performance_test
     PRIVATE
-    parallel sequential traces
+    parallel
+    sequential
+    traces
 )
 
 target_compile_options(performance_test
