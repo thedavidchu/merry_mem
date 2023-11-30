@@ -1,12 +1,55 @@
 #!/usr/bin/python3
 
-from typing import List
+import itertools
+import json
+import subprocess
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 
 
-def run_performance_test():
-    pass
+def run_performance_tests():
+    modes: List[str] = ["random", "ordered"]
+    ratios: List[Tuple[int, int, int]] = [(10, 80, 10), (33, 33, 33), (50, 0, 50)]
+    max_num_keys: int = 100
+    goal_trace_length: int = 1000
+    version: int = 0    # TODO Change this if you have multiple runs
+
+    for m, r in itertools.product(modes, ratios):
+        print(f"Running '{m}' mode with ratios {r} keys {max_num_keys} length {goal_trace_length}")
+        output_file = f"{m}-{r[0]}:{r[1]}:{r[2]}-n{max_num_keys}-t{goal_trace_length}-v{version}.json"
+        # Assumes we are in the root of the project
+        # NOTE We cannot just pass this list in as the commands because for some
+        #      reason, it is not read correctly so the specified values are not
+        #      used. It might be because the strings with the flags and arguments
+        #      do not match just the flags?
+        cmd = " ".join([
+            "./build/test/performance_test/performance_test_exe",
+            f"--ratio {r[0]} {r[1]} {r[2]}",
+            f"--num-keys  {max_num_keys}",
+            f"--trace-length {goal_trace_length}",
+            f" --mode {m}",
+            f"--output {output_file}",
+        ])
+        print(f"Running '{cmd}'")
+        subprocess.run(cmd, shell=True)
+
+    for m, r in itertools.product(modes, ratios):
+        print(f"Plotting '{m}' mode with ratios {r} keys {max_num_keys} length {goal_trace_length}")
+        output_file = f"{m}-{r[0]}:{r[1]}:{r[2]}-n{max_num_keys}-t{goal_trace_length}-v{version}.json"
+        with open(output_file) as f:
+            j = json.load(f)
+        sequential_time = j["sequential"]
+        parallel_times = j["parallel"]
+        plot_performance(
+            sequential_time_in_sec=sequential_time,
+            parallel_num_workers=[x for x in range(1, 32 + 1)],
+            parallel_time_in_sec=parallel_times,
+            workload_name=f"{m} operators",
+            insert_ratio=r[0],
+            search_ratio=r[1],
+            remove_ratio=r[2],
+        )
 
 
 def plot_performance(
@@ -50,6 +93,7 @@ def main():
         search_ratio=1,
         remove_ratio=1,
     )
+    run_performance_tests()
 
 
 if __name__ == "__main__":
