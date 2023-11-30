@@ -5,7 +5,7 @@ add_library(parallel
 )
 
 # Forward this directory to dependents.
-target_link_directories(parallel PUBLIC
+target_include_directories(parallel PUBLIC
     ${CMAKE_SOURCE_DIR}/src
 )
 
