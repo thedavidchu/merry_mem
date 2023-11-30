@@ -1,12 +1,16 @@
 # NOTE: We include header files to make them visible to IDEs.
-add_executable(unit_test
+add_executable(unit_test_exe
     main.cpp
-    ../../src/sequential/sequential.cpp
-    ../../src/sequential/sequential.hpp
-    ../../src/traces/traces.cpp
 )
 
-target_compile_options(unit_test
+target_link_libraries(unit_test_exe
+    PRIVATE
+    parallel_lib
+    sequential_lib
+    trace_lib
+)
+
+target_compile_options(unit_test_exe
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}
@@ -17,13 +21,13 @@ target_compile_options(unit_test
 # See: https://stackoverflow.com/questions/28178978/how-to-generate-pdb-files-for-release-build-with-cmake-flags.
 # TODO(glin): Can this be refactored into a function?
 if(MSVC)
-    target_compile_options(unit_test
+    target_compile_options(unit_test_exe
         PRIVATE
         $<$<CONFIG:Release>:/Zc:inline>
         $<$<CONFIG:Release>:/Zi>
         $<$<CONFIG:Release>:/Gy>
     )
-    target_link_options(unit_test
+    target_link_options(unit_test_exe
         PRIVATE
         $<$<CONFIG:Release>:/DEBUG>
         $<$<CONFIG:Release>:/INCREMENTAL:NO>
@@ -31,16 +35,16 @@ if(MSVC)
         $<$<CONFIG:Release>:/OPT:ICF>
     )
 elseif((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_ID MATCHES ".*Clang"))
-    target_compile_options(unit_test
+    target_compile_options(unit_test_exe
         PRIVATE
         $<$<CONFIG:Release>:-g>
     )
-    target_link_options(unit_test
+    target_link_options(unit_test_exe
         PRIVATE
         $<$<CONFIG:Release>:-g>
     )
     if(WIN32)
-        target_compile_options(unit_test
+        target_compile_options(unit_test_exe
             PRIVATE
             $<$<CONFIG:Release>:-gcodeview>
         )
