@@ -11,8 +11,9 @@ target_link_libraries(sequential
 
 # Forward this directory to dependents.
 target_include_directories(sequential
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
-    PUBLIC ${CMAKE_SOURCE_DIR}/include
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/common/include
 )
 
 target_compile_options(sequential
