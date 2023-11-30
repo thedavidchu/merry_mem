@@ -43,7 +43,6 @@ SegmentLock::unlock()
     this->locked_count_ = 0;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 /// THREAD MANAGER
 ////////////////////////////////////////////////////////////////////////////////
@@ -222,7 +221,7 @@ ParallelRobinHoodHashTable::remove(KeyType key)
     // shift to the left
     while(next_offset > 0) {
         manager.lock(next_index); 
-        KeyValue entry_to_move = this->do_atomic_swap(empty_entry, next_index); //na this is fucked up 
+        KeyValue entry_to_move = this->do_atomic_swap(empty_entry, next_index);
         this->buckets_[curr_index].store(entry_to_move);
         curr_index = next_index;
         ++next_index;
@@ -237,7 +236,7 @@ ParallelRobinHoodHashTable::remove(KeyType key)
 std::pair<ValueType, bool>
 ParallelRobinHoodHashTable::find(KeyType key)
 {
-    // first try fast path
+    // First, try fast path
     HashCodeType hashcode = hash(key);
     size_t home = get_home(hashcode, this->capacity_);
     KeyValue zero_distance_key_pair = atomic_load_key_val(home);
@@ -253,7 +252,7 @@ ParallelRobinHoodHashTable::find(KeyType key)
     ValueType value = 0;
     bool found = false;
     bool speculative_success = false;
-    // As dictated by Griffin and David.
+    // NOTE We arbitrarily chose a max_tries of 10
     constexpr size_t max_tries = 10;
 
     while (tries < max_tries) {

@@ -10,7 +10,7 @@ target_link_libraries(trace_lib
     # This is public so that the common include files are recursively inherited
     PUBLIC
     common
-    utilities
+    utility_lib
 )
 
 # Forward this directory to dependents.

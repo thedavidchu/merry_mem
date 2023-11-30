@@ -5,7 +5,7 @@
 #include "common/logger.hpp"
 #include "common/status.hpp"
 #include "common/types.hpp"
-#include "utilities/utilities.hpp"
+#include "utility/utility.hpp"
 
 enum class TraceOperator {
     insert,

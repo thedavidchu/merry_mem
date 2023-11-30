@@ -1,7 +1,7 @@
 # NOTE: We include header files to make them visible to IDEs.
-add_library(utilities
-    utilities.cpp
-    include/utilities/utilities.hpp
+add_library(utility_lib
+    utility.cpp
+    include/utility/utility.hpp
 )
 
 target_link_libraries(utilities
