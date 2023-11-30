@@ -174,7 +174,7 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
         }
     }
 
-    // locked insert
+    // Locked insert
     bool inserted = this->locked_insert(entry_to_insert, next_index);
     if (inserted == true) {
         manager.release_all_locks();
