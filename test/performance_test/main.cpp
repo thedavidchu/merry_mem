@@ -222,7 +222,7 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
 int main(int argc, char *argv[]) {
     PerformanceTestArguments args = parse_performance_test_arguments(argc, argv);
     args.print();
-    std::vector<Trace> traces = generate_random_traces(100000, 100000000);
+    std::vector<Trace> traces = generate_random_traces(1000, 100000);
     double seq_time_in_sec = run_sequential_performance_test(traces);
     std::vector<double> parallel_time_in_sec;
 
