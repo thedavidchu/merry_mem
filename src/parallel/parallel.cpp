@@ -348,7 +348,7 @@ ParallelRobinHoodHashTable::do_atomic_swap(const KeyValue &swap_entry, size_t in
 KeyValue
 ParallelRobinHoodHashTable::atomic_load_key_val(size_t index)
 {
-    return this->buckets_[index].load(); 
+    return this->buckets_[index].load();
 }
 
 InsertStatus
