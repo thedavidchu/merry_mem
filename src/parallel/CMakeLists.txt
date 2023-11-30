@@ -36,6 +36,12 @@ target_compile_options(parallel_exe
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}
 )
+if(UNIX)
+    target_link_libraries(parallel
+        PRIVATE
+        atomic
+    )
+endif()
 
 if(UNIX)
     target_link_libraries(parallel
