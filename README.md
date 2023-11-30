@@ -15,7 +15,7 @@ The project is structured as follows:
 |  |                      check executable)
 |  |--sequential/       : Sequential implementation (library and simple sanity
 |  |                      check executable)
-|  `--trace/           : Code for generating traces to test our implementations
+|  `--trace/            : Code for generating traces to test our implementations
 `--test/
    |--performance_test/ : Benchmark the sequential vs the parallel parallel
    |                      implementations with different traces and different
@@ -27,7 +27,7 @@ The project is structured as follows:
 
 ## Build
 
-We use the CMake buildsystem (version 3.18.4) that is available on the UG
+We use the CMake build system (version 3.18.4) that is available on the UG
 machines. After ensuring you have CMake installed, build the CMake project:
 
 ```bash
