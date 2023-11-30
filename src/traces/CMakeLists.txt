@@ -1,9 +1,21 @@
 # NOTE: We include header files to make them visible to IDEs.
 add_library(traces
     traces.cpp
-    traces.hpp
+    include/traces/traces.hpp
     uniform_random.hpp
     zipfian_random.hpp
+)
+
+target_link_libraries(traces
+    # This is public so that the common include files are recursively inherited
+    PUBLIC
+    common
+)
+
+# Forward this directory to dependents.
+target_include_directories(traces
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_compile_options(traces

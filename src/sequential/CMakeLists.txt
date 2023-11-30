@@ -1,11 +1,37 @@
 # NOTE: We include header files to make them visible to IDEs.
-add_executable(sequential
-    main.cpp
+add_library(sequential
     sequential.cpp
-    sequential.hpp
+    include/sequential/sequential.hpp
+)
+
+target_link_libraries(sequential
+    # This is public so that the common include files are recursively inherited
+    PUBLIC
+    common
+)
+
+# Forward this directory to dependents.
+target_include_directories(sequential
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_compile_options(sequential
+    PRIVATE
+    ${MM_REQUIRED_WARN_FLAGS}
+    ${MM_EXTRA_WARN_FLAGS}
+)
+
+add_executable(sequential_exe
+    main.cpp
+)
+
+target_link_libraries(sequential_exe
+    PRIVATE
+    sequential
+)
+
+target_compile_options(sequential_exe
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}

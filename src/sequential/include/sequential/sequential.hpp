@@ -7,9 +7,9 @@
 #include <utility>
 #include <vector>
 
-#include "../common/logger.hpp"
-#include "../common/status.hpp"
-#include "../common/types.hpp"
+#include "common/logger.hpp"
+#include "common/status.hpp"
+#include "common/types.hpp"
 
 ////////////////////////////////////////////////////////////////////////////////
 /// HELPER CLASSES

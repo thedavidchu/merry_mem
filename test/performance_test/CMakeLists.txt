@@ -1,13 +1,13 @@
 # NOTE: We include header files to make them visible to IDEs.
 add_executable(performance_test
     main.cpp
-    ../../src/parallel/parallel.cpp
-    ../../src/sequential/sequential.cpp
-    ../../src/traces/traces.cpp
+)
 
-    ../../src/parallel/parallel.hpp
-    ../../src/sequential/sequential.hpp
-    ../../src/traces/traces.hpp
+target_link_libraries(performance_test
+    PRIVATE
+    parallel
+    sequential
+    traces
 )
 
 target_compile_options(performance_test

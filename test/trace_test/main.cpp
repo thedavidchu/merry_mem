@@ -3,13 +3,13 @@
 #include <iostream>
 #include <vector>
 
-#include "../../src/traces/traces.hpp"
+#include "traces/traces.hpp"
 
 /// Print out two traces
 int main() {
     constexpr std::size_t trace_count = 10;
     std::vector<Trace> traces;
-    std::array<Trace, trace_count> random_oracle = {
+    std::array<Trace, trace_count> random_oracle = {{
         {TraceOperator::insert, 2, 0},
         {TraceOperator::insert, 0, 1},
         {TraceOperator::remove, 2, 2},
@@ -20,8 +20,8 @@ int main() {
         {TraceOperator::insert, 1, 7},
         {TraceOperator::remove, 0, 8},
         {TraceOperator::remove, 1, 9},
-    };
-    std::array<Trace, trace_count> ordered_oracle = {
+    }};
+    std::array<Trace, trace_count + 1> ordered_oracle = {{
         {TraceOperator::insert, 2, 0},
         {TraceOperator::insert, 0, 1},
         {TraceOperator::insert, 2, 2},
@@ -33,7 +33,7 @@ int main() {
         {TraceOperator::remove, 0, 8},
         {TraceOperator::remove, 1, 9},
         {TraceOperator::remove, 0, 10},
-    };
+    }};
 
     std::cout << "=== Start trace test ===\n";
     std::cout << "--- Random test ---\n";

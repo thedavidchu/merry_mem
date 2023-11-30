@@ -1,11 +1,37 @@
 # NOTE: We include header files to make them visible to IDEs.
-add_executable(parallel
-    main.cpp
+add_library(parallel
     parallel.cpp
-    parallel.hpp
+    include/parallel/parallel.hpp
+)
+
+target_link_libraries(parallel
+    # This is public so that the common include files are recursively inherited
+    PUBLIC
+    common
+)
+
+# Forward this directory to dependents.
+target_include_directories(parallel
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_compile_options(parallel
+    PRIVATE
+    ${MM_REQUIRED_WARN_FLAGS}
+    ${MM_EXTRA_WARN_FLAGS}
+)
+
+add_executable(parallel_exe
+    main.cpp
+)
+
+target_link_libraries(parallel_exe
+    PRIVATE
+    parallel
+)
+
+target_compile_options(parallel_exe
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}

@@ -1,4 +1,4 @@
-#include "parallel.hpp"
+#include "parallel/parallel.hpp"
 
 int
 main()

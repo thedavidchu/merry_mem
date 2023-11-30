@@ -6,7 +6,7 @@
 #include "uniform_random.hpp"
 #include "zipfian_random.hpp"
 
-#include "traces.hpp"
+#include "traces/traces.hpp"
 
 void
 Trace::print() const
