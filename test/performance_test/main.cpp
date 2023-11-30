@@ -102,12 +102,20 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
 int main(int argc, char *argv[]) {
     PerformanceTestArguments args = parse_performance_test_arguments(argc, argv);
     args.print();
-    std::vector<Trace> traces = generate_random_traces(1000, 100000);
+    std::vector<Trace> traces;
+    if (args.trace_op_mode == "random") {
+        traces = generate_random_traces(args.max_num_keys, args.goal_trace_length,
+                args.insert_ratio, args.search_ratio, args.remove_ratio);
+    } else if (args.trace_op_mode == "ordered") {
+        traces = generate_ordered_traces(args.max_num_keys, args.goal_trace_length,
+                args.insert_ratio, args.search_ratio, args.remove_ratio);
+    }
     LOG_INFO("Finished generating traces");
+
     double seq_time_in_sec = run_sequential_performance_test(traces);
     LOG_INFO("Finished sequential test");
-    std::vector<double> parallel_time_in_sec;
 
+    std::vector<double> parallel_time_in_sec;
     for (size_t w = 1; w <= 32; ++w) {
         double time = run_parallel_performance_test(traces, w);
         parallel_time_in_sec.push_back(time);
