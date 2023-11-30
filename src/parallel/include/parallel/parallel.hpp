@@ -87,6 +87,13 @@ struct KeyValue {
 
 using ParallelBucket = std::atomic<KeyValue>;
 
+/// We would want the following static assert here, because it would guarantee 
+/// that we use atomic operations, rather than locks, as per the MIT paper.
+/// However, we cannot include it because it asserts that ParallelBucket is 
+/// lock-free on ALL platforms, not just ours, and 16-byte atomics are not  
+/// supported on all platforms.
+/// static_assert(ParallelBucket::is_always_lock_free);
+
 class ThreadManager {
 public:
     ThreadManager(class ParallelRobinHoodHashTable *const hash_table);
