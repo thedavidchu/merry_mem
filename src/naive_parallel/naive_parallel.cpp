@@ -1,5 +1,6 @@
 #include <algorithm>  // std::swap
 #include <optional>
+#include <tuple>
 
 #include "naive_parallel/naive_parallel.hpp"
 
@@ -61,6 +62,26 @@ get_real_index(const size_t home, const size_t offset, const size_t capacity) {
 /// HASH TABLE CLASS
 ////////////////////////////////////////////////////////////////////////////////
 
+NaiveParallelBucket &
+NaiveParallelRobinHoodHashTable::get_bucket(const size_t index)
+{
+  std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+  return std::get<0>(r);
+}
+
+void
+NaiveParallelRobinHoodHashTable::lock_index(const size_t index)
+{
+  std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+  std::get<1>(r).lock();
+}
+
+void
+NaiveParallelRobinHoodHashTable::unlock_index(const size_t index)
+{
+  std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+  std::get<1>(r).unlock();
+}
 /// NOTE: NOT THREAD SAFE!!!
 void
 NaiveParallelRobinHoodHashTable::print() {
@@ -68,14 +89,15 @@ NaiveParallelRobinHoodHashTable::print() {
   std::cout << "(Length: " << this->length_ << "/Capacity: " << this->capacity_ << ") [\n";
   for (size_t i = 0; i < this->capacity_; ++i) {
     std::cout << "\t" << i << ": ";
-    const NaiveParallelBucket &bkt = this->buckets_[i];
+    const NaiveParallelBucket &bkt = this->get_bucket(i);
     bkt.print(this->capacity_);
     std::cout << ",\n";
   }
   std::cout << "]" << std::endl;
 }
 
-#define UNLOCK_ALL(vec) for (auto idx : vec) { this->mutexes_[idx].unlock(); }
+
+#define UNLOCK_ALL(vec) for (auto idx : vec) { this->unlock_index(idx); }
 
 std::pair<SearchStatus, size_t>
 NaiveParallelRobinHoodHashTable::get_wouldbe_offset(
@@ -89,9 +111,9 @@ NaiveParallelRobinHoodHashTable::get_wouldbe_offset(
   for (size_t i = 0; i < capacity; ++i) {
     size_t real_index = get_real_index(home, i, capacity);
     if (std::find(locked_buckets.begin(), locked_buckets.end(), real_index) == locked_buckets.end()) {
-      this->mutexes_[real_index].lock();
+      this->lock_index(real_index);
     }
-    const NaiveParallelBucket &bkt = this->buckets_[real_index];
+    const NaiveParallelBucket &bkt = this->get_bucket(real_index);
     // If not found
     if (bkt.is_empty()) {
       // This is first, because equality on an empty bucket is not well defined.
@@ -102,7 +124,7 @@ NaiveParallelRobinHoodHashTable::get_wouldbe_offset(
     } else if (bkt.equal_by_key(key, hashcode)) {
       return {SearchStatus::found_match, i};
     }
-    this->mutexes_[real_index].unlock();
+    this->unlock_index(real_index);
   }
   // If no hole found, then we hold no locks!
   return {SearchStatus::found_nohole, SIZE_MAX};
@@ -134,9 +156,9 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
       case SearchStatus::found_match: {
         LOG_DEBUG("SearchStatus::found_match");
         size_t real_index = get_real_index(home, offset, capacity);
-        NaiveParallelBucket &bkt = this->buckets_[real_index];
+        NaiveParallelBucket &bkt = this->get_bucket(real_index);
         bkt.value = tmp.value;
-        this->mutexes_[real_index].unlock();
+        this->unlock_index(real_index);
         UNLOCK_ALL(locked_buckets);
         return ErrorType::ok;
       }
@@ -144,7 +166,7 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
         LOG_DEBUG("SearchStatus::found_swap");
         // NOTE(dchu): could be buggy
         size_t real_index = get_real_index(home, offset, capacity);
-        NaiveParallelBucket &bkt = this->buckets_[real_index];
+        NaiveParallelBucket &bkt = this->get_bucket(real_index);
         tmp.offset = offset;
         std::swap(bkt, tmp);
         locked_buckets.push_back(real_index);
@@ -154,10 +176,10 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
         LOG_DEBUG("SearchStatus::found_hole");
         // NOTE(dchu): could be buggy
         size_t real_index = get_real_index(home, offset, capacity);
-        NaiveParallelBucket &bkt = this->buckets_[real_index];
+        NaiveParallelBucket &bkt = this->get_bucket(real_index);
         tmp.offset = offset;
         std::swap(bkt, tmp);
-        this->mutexes_[real_index].unlock();
+        this->unlock_index(real_index);
         this->meta_mutex_.lock();
         ++this->length_;
         this->meta_mutex_.unlock();
@@ -183,9 +205,9 @@ NaiveParallelRobinHoodHashTable::search(KeyType key) {
   switch (status) {
     case SearchStatus::found_match: {
       size_t real_index = get_real_index(home, offset, this->capacity_);
-      const NaiveParallelBucket &bkt = this->buckets_[real_index];
+      const NaiveParallelBucket &bkt = this->get_bucket(real_index);
       ValueType v = bkt.value;
-      this->mutexes_[real_index].unlock();
+      this->unlock_index(real_index);
       return v;
     }
     case SearchStatus::found_nohole:
@@ -193,7 +215,7 @@ NaiveParallelRobinHoodHashTable::search(KeyType key) {
     case SearchStatus::found_hole:
     case SearchStatus::found_swap: {
       size_t real_index = get_real_index(home, offset, this->capacity_);
-      this->mutexes_[real_index].unlock();
+      this->unlock_index(real_index);
       return std::nullopt;
     }
     default:
@@ -214,15 +236,15 @@ NaiveParallelRobinHoodHashTable::remove(KeyType key) {
       for (size_t i = 0; i < this->capacity_; ++i) {
         // NOTE(dchu): real_index is the previous iteration's next_real_index
         size_t real_index = get_real_index(home, offset + i, this->capacity_);
-        NaiveParallelBucket &bkt = this->buckets_[real_index];
+        NaiveParallelBucket &bkt = this->get_bucket(real_index);
         size_t next_real_index = get_real_index(home, offset + i + 1, this->capacity_);
-        NaiveParallelBucket &next_bkt = this->buckets_[next_real_index];
-          this->mutexes_[next_real_index].lock();
+        NaiveParallelBucket &next_bkt = this->get_bucket(next_real_index);
+        this->lock_index(next_real_index);
         // Next element is empty or already in its home bucket
         if (next_bkt.is_empty() || next_bkt.offset == 0) {
           bkt.invalidate();
-          this->mutexes_[real_index].unlock();
-          this->mutexes_[next_real_index].unlock();
+          this->unlock_index(real_index);
+          this->unlock_index(next_real_index);
           this->meta_mutex_.lock();
           --this->length_;
           this->meta_mutex_.unlock();
@@ -233,7 +255,7 @@ NaiveParallelRobinHoodHashTable::remove(KeyType key) {
         // elements belonging to the same home, over which it may leap-frog.
         bkt = std::move(next_bkt);
         --bkt.offset;
-        this->mutexes_[real_index].unlock();
+        this->unlock_index(real_index);
       }
       assert(0 && "impossible! Should have a hole");
     }
@@ -241,7 +263,7 @@ NaiveParallelRobinHoodHashTable::remove(KeyType key) {
     case SearchStatus::found_hole:
     case SearchStatus::found_swap: {
       size_t real_index = get_real_index(home, offset, this->capacity_);
-      this->mutexes_[real_index].unlock();
+      this->unlock_index(real_index);
       return ErrorType::e_notfound;
     }
     case SearchStatus::found_nohole:

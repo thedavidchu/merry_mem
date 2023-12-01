@@ -6,6 +6,7 @@
 #include <mutex>
 #include <optional>
 #include <utility>
+#include <tuple>
 #include <vector>
 
 #include "common/logger.hpp"
@@ -49,6 +50,10 @@ struct NaiveParallelBucket {
 ////////////////////////////////////////////////////////////////////////////////
 
 class NaiveParallelRobinHoodHashTable {
+  std::vector<std::tuple<NaiveParallelBucket, std::mutex>> buckets_{1<<20};
+  std::mutex meta_mutex_;
+  size_t length_ = 0;
+  size_t capacity_ = 1<<20;
 public:
   void
   print();
@@ -85,10 +90,13 @@ public:
   getElements();
 
 private:
-  std::vector<NaiveParallelBucket> buckets_{1<<20};
-  std::vector<std::mutex> mutexes_{1<<20};
-  std::mutex meta_mutex_;
-  size_t length_ = 0;
-  size_t capacity_ = 1<<20;
+  __attribute__((always_inline)) NaiveParallelBucket &
+  get_bucket(const size_t index);
+
+  __attribute__((always_inline)) void
+  lock_index(const size_t index);
+
+  __attribute__((always_inline)) void
+  unlock_index(const size_t index);
 };
 
