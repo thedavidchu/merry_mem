@@ -46,7 +46,7 @@ run_sequential_performance_test(const std::vector<Trace> &traces)
     }
     end_time = clock();
     double duration_in_seconds = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
-    std::cout << "Time in sec: " << duration_in_seconds << std::endl;
+    std::cout << "Sequential time in sec: " << duration_in_seconds << std::endl;
     return duration_in_seconds;
 }
 
@@ -98,7 +98,7 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
     }
     end_time = clock();
     double duration_in_seconds = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
-    std::cout << "Time in sec: " << duration_in_seconds << std::endl;
+    std::cout << "Parallel time in sec: " << duration_in_seconds << std::endl;
     return duration_in_seconds;
 }
 
@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
     LOG_INFO("Finished sequential test");
 
     std::vector<double> parallel_time_in_sec;
-    for (size_t w = 1; w <= 32; ++w) {
+    for (size_t w = 1; w <= 16; ++w) {
         double time = run_parallel_performance_test(traces, w);
         parallel_time_in_sec.push_back(time);
     }
