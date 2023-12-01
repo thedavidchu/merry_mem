@@ -12,7 +12,8 @@
 #include "trace/trace.hpp"
 
 #include "sequential/sequential.hpp"
-#include "parallel/parallel.hpp"
+//#include "parallel/parallel.hpp"
+#include "naive_parallel/naive_parallel.hpp"
 
 #include "argument_parser.hpp"
 #include "recorder.hpp"
@@ -50,7 +51,7 @@ run_sequential_performance_test(const std::vector<Trace> &traces)
 }
 
 void
-run_parallel_worker(ParallelRobinHoodHashTable &hash_table,
+run_parallel_worker(NaiveParallelRobinHoodHashTable &hash_table,
                     const std::vector<Trace> &traces, const size_t t_id,
                     const size_t num_workers)
 {
@@ -66,7 +67,8 @@ run_parallel_worker(ParallelRobinHoodHashTable &hash_table,
         case TraceOperator::search: {
             // NOTE Marking this as volatile means the compiler will not
             //      optimize this call out.
-            volatile std::pair<long unsigned int, bool> r = hash_table.find(t.key);
+            //volatile std::pair<long unsigned int, bool>
+            std::optional<long unsigned int> r = hash_table.search(t.key);
             break;
         }
         case TraceOperator::remove: {
@@ -87,7 +89,7 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
     std::vector<std::thread> workers;
 
     start_time = clock();
-    ParallelRobinHoodHashTable hash_table;
+    NaiveParallelRobinHoodHashTable hash_table;
     for (size_t i = 0; i < num_workers; ++i) {
         workers.emplace_back(run_parallel_worker, std::ref(hash_table), std::ref(traces), i, num_workers);
     }
