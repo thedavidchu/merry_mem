@@ -19,7 +19,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 /// @brief  Bucket for the Robin Hood hash table.
-struct NaiveParallelBucket {
+struct ParallelBucket {
   KeyType key = 0;
   ValueType value = 0;
   HashCodeType hashcode = 0;
@@ -49,23 +49,12 @@ struct NaiveParallelBucket {
 /// HASH TABLE CLASS
 ////////////////////////////////////////////////////////////////////////////////
 
-class NaiveParallelRobinHoodHashTable {
-  std::vector<std::tuple<NaiveParallelBucket, std::mutex>> buckets_{1<<20};
+class ParallelRobinHoodHashTable {
+  std::vector<std::tuple<ParallelBucket, std::mutex>> buckets_{1<<20};
   std::mutex meta_mutex_;
   size_t length_ = 0;
   size_t capacity_ = 1<<20;
 public:
-  void
-  print();
-
-  std::pair<SearchStatus, OffsetType>
-  get_wouldbe_offset(
-    const KeyType key,
-    const HashCodeType hashcode,
-    const size_t home,
-    const std::vector<size_t> &locked_buckets
-  );
-
   /// @brief Insert <key, value> pair.
   ///
   /// @return 0 on good; 1 on failure
@@ -86,29 +75,36 @@ public:
   ErrorType
   remove(KeyType key);
 
-  std::vector<ValueType>
-  getElements();
+  void
+  print();
 
 private:
-  __attribute__((always_inline)) NaiveParallelBucket &
+  std::pair<SearchStatus, OffsetType>
+  get_wouldbe_offset(
+    const KeyType key,
+    const HashCodeType hashcode,
+    const size_t home,
+    const std::vector<size_t> &locked_buckets
+  );
+
+  __attribute__((always_inline)) ParallelBucket &
   get_bucket(const size_t index)
   {
-    std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+    std::tuple<ParallelBucket, std::mutex> &r = this->buckets_[index];
     return std::get<0>(r);
   }
 
   __attribute__((always_inline)) void
   lock_index(const size_t index)
   {
-    std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+    std::tuple<ParallelBucket, std::mutex> &r = this->buckets_[index];
     std::get<1>(r).lock();
   }
 
   __attribute__((always_inline)) void
   unlock_index(const size_t index)
   {
-    std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+    std::tuple<ParallelBucket, std::mutex> &r = this->buckets_[index];
     std::get<1>(r).unlock();
   }
 };
-

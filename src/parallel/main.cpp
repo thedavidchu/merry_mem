@@ -6,7 +6,7 @@
 
 int main() {
   LOG_TRACE("Enter");
-  NaiveParallelRobinHoodHashTable a;
+  ParallelRobinHoodHashTable a;
   // Insert
   for (uint64_t i = 0; i < 10; ++i) {
     ErrorType e = a.insert(i, i);
