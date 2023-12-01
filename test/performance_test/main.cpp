@@ -12,6 +12,7 @@
 #include "trace/trace.hpp"
 
 #include "sequential/sequential.hpp"
+#include "parallel/parallel.hpp"
 #include "naive_parallel/naive_parallel.hpp"
 
 #include "argument_parser.hpp"
@@ -49,8 +50,9 @@ run_sequential_performance_test(const std::vector<Trace> &traces)
     return duration_in_seconds;
 }
 
+template<typename HashTable>
 void
-run_parallel_worker(NaiveParallelRobinHoodHashTable &hash_table,
+run_parallel_worker(HashTable &hash_table,
                     const std::vector<Trace> &traces, const size_t t_id,
                     const size_t num_workers)
 {
@@ -90,15 +92,16 @@ run_parallel_worker(NaiveParallelRobinHoodHashTable &hash_table,
     }
 }
 
+template<typename HashTable>
 double
 run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num_workers)
 {
     std::vector<std::thread> workers;
 
     const auto start_time = std::chrono::steady_clock::now();
-    NaiveParallelRobinHoodHashTable hash_table;
+    HashTable hash_table;
     for (size_t i = 0; i < num_workers; ++i) {
-        workers.emplace_back(run_parallel_worker, std::ref(hash_table), std::ref(traces), i, num_workers);
+        workers.emplace_back(run_parallel_worker<HashTable>, std::ref(hash_table), std::ref(traces), i, num_workers);
     }
     for (auto &w : workers) {
         w.join();
@@ -126,13 +129,19 @@ int main(int argc, char *argv[]) {
     double seq_time_in_sec = run_sequential_performance_test(traces);
     LOG_INFO("Finished sequential test");
 
+    std::vector<double> naive_parallel_time_in_sec;
+    for (size_t w = 1; w <= 32; ++w) {
+        double time = run_parallel_performance_test<NaiveParallelRobinHoodHashTable>(traces, w);
+        naive_parallel_time_in_sec.push_back(time);
+    }
+
     std::vector<double> parallel_time_in_sec;
     for (size_t w = 1; w <= 32; ++w) {
-        double time = run_parallel_performance_test(traces, w);
+        double time = run_parallel_performance_test<ParallelRobinHoodHashTable>(traces, w);
         parallel_time_in_sec.push_back(time);
     }
 
-    record_performance_test_times(args, seq_time_in_sec, parallel_time_in_sec);
+    record_performance_test_times(args, seq_time_in_sec, naive_parallel_time_in_sec, parallel_time_in_sec);
 
     return 0;
 }

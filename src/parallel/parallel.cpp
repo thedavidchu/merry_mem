@@ -1,4 +1,5 @@
 #include <algorithm>  // std::swap
+#include <atomic>
 #include <optional>
 #include <tuple>
 
@@ -175,6 +176,11 @@ ParallelRobinHoodHashTable::search(KeyType key) {
   LOG_TRACE("Enter");
   HashCodeType hashcode = hash(key);
   size_t home = get_home(hashcode, this->capacity_);
+  const std::atomic_ref atomic_home_bucket(this->get_bucket(home));
+  const ParallelBucket home_bucket = atomic_home_bucket.load();
+  if (!home_bucket.is_empty() && home_bucket.equal_by_key(key, hashcode)) {
+    return home_bucket.value;
+  }
 
   const auto [status, offset] = this->get_wouldbe_offset(key, hashcode, home, {});
   switch (status) {

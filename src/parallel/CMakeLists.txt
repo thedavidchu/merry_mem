@@ -9,6 +9,7 @@ target_link_libraries(parallel_lib
     PUBLIC
     common
     utility_lib
+    atomic
 )
 
 # Forward this directory to dependents.
@@ -21,6 +22,7 @@ target_compile_options(parallel_lib
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}
+    -mcx16
 )
 
 add_executable(parallel_exe

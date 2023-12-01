@@ -50,10 +50,6 @@ struct ParallelBucket {
 ////////////////////////////////////////////////////////////////////////////////
 
 class ParallelRobinHoodHashTable {
-  std::vector<std::tuple<ParallelBucket, std::mutex>> buckets_{1<<20};
-  std::mutex meta_mutex_;
-  size_t length_ = 0;
-  size_t capacity_ = 1<<20;
 public:
   /// @brief Insert <key, value> pair.
   ///
@@ -79,6 +75,12 @@ public:
   print();
 
 private:
+  struct alignas(16) UnderlyingBucket
+  {
+    ParallelBucket bucket;
+    std::mutex mutex;
+  };
+
   std::pair<SearchStatus, OffsetType>
   get_wouldbe_offset(
     const KeyType key,
@@ -90,21 +92,24 @@ private:
   __attribute__((always_inline)) ParallelBucket &
   get_bucket(const size_t index)
   {
-    std::tuple<ParallelBucket, std::mutex> &r = this->buckets_[index];
-    return std::get<0>(r);
+    return this->buckets_[index].bucket;
   }
 
   __attribute__((always_inline)) void
   lock_index(const size_t index)
   {
-    std::tuple<ParallelBucket, std::mutex> &r = this->buckets_[index];
-    std::get<1>(r).lock();
+    this->buckets_[index].mutex.lock();
   }
 
   __attribute__((always_inline)) void
   unlock_index(const size_t index)
   {
-    std::tuple<ParallelBucket, std::mutex> &r = this->buckets_[index];
-    std::get<1>(r).unlock();
+    this->buckets_[index].mutex.unlock();
   }
+
+private:
+  std::vector<UnderlyingBucket> buckets_{1<<20};
+  std::mutex meta_mutex_;
+  size_t length_ = 0;
+  size_t capacity_ = 1<<20;
 };
