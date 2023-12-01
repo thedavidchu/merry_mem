@@ -26,13 +26,6 @@ struct NaiveParallelBucket {
   // we can fit this bucket into 4 words, which is more amenable to the hardware.
   // A value of SIZE_MAX would be attrocious for performance anyways.
   size_t offset = SIZE_MAX;
-  std::mutex mutex;
-
-  void
-  lock();
-
-  void
-  unlock();
 
   bool
   is_empty() const;
@@ -60,6 +53,9 @@ public:
   void
   print();
 
+  std::pair<SearchStatus, size_t>
+  get_wouldbe_offset(const KeyType key, const HashCodeType hashcode, const size_t home);
+
   /// @brief Insert <key, value> pair.
   ///
   /// @return 0 on good; 1 on failure
@@ -83,13 +79,11 @@ public:
   std::vector<ValueType> 
   getElements();
 
-
-
 private:
   std::vector<NaiveParallelBucket> buckets_{1<<20};
+  std::vector<std::mutex> mutexes_{1<<20};
+  std::mutex meta_mutex_;
   size_t length_ = 0;
   size_t capacity_ = 1<<20;
-
-  ErrorType
-  resize(size_t new_size);
 };
+

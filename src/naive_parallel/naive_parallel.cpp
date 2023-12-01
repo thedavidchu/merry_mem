@@ -6,18 +6,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
-void
-NaiveParallelBucket::lock() {
-  LOG_TRACE("Enter");
-  this->mutex.lock();
-}
-
-void
-NaiveParallelBucket::unlock() {
-  LOG_TRACE("Enter");
-  this->mutex.unlock();
-}
-
 bool
 NaiveParallelBucket::is_empty() const {
   LOG_TRACE("Enter");
@@ -67,17 +55,37 @@ get_real_index(const size_t home, const size_t offset, const size_t capacity) {
   return (home + offset) % capacity;
 }
 
-static std::pair<SearchStatus, size_t>
-get_wouldbe_offset(const std::vector<NaiveParallelBucket> &buckets_buf,
-                   const KeyType key,
+
+////////////////////////////////////////////////////////////////////////////////
+/// HASH TABLE CLASS
+////////////////////////////////////////////////////////////////////////////////
+
+/// NOTE: NOT THREAD SAFE!!!
+void
+NaiveParallelRobinHoodHashTable::print() {
+  LOG_TRACE("Enter");
+  std::cout << "(Length: " << this->length_ << "/Capacity: " << this->capacity_ << ") [\n";
+  for (size_t i = 0; i < this->capacity_; ++i) {
+    std::cout << "\t" << i << ": ";
+    const NaiveParallelBucket &bkt = this->buckets_[i];
+    bkt.print(this->capacity_);
+    std::cout << ",\n";
+  }
+  std::cout << "]" << std::endl;
+}
+
+#define UNLOCK_ALL(vec) for (auto idx : vec) { this->mutexes_[idx].unlock(); }
+
+std::pair<SearchStatus, size_t>
+NaiveParallelRobinHoodHashTable::get_wouldbe_offset(const KeyType key,
                    const HashCodeType hashcode,
                    const size_t home) {
   LOG_TRACE("Enter");
-  size_t capacity = buckets_buf.size();
+  size_t capacity = this->buckets_.size();
   for (size_t i = 0; i < capacity; ++i) {
     size_t real_index = get_real_index(home, i, capacity);
-    const NaiveParallelBucket &bkt = buckets_buf[real_index];
-    bkt.lock();
+    this->mutexes_[real_index].lock();
+    const NaiveParallelBucket &bkt = this->buckets_[real_index];
     // If not found
     if (bkt.is_empty()) {
       // This is first, because equality on an empty bucket is not well defined.
@@ -88,28 +96,10 @@ get_wouldbe_offset(const std::vector<NaiveParallelBucket> &buckets_buf,
     } else if (bkt.equal_by_key(key, hashcode)) {
       return {SearchStatus::found_match, i};
     }
-    bkt.unlock();
+    this->mutexes_[real_index].unlock();
   }
+  // If no hole found, then we hold no locks!
   return {SearchStatus::found_nohole, SIZE_MAX};
-}
-
-////////////////////////////////////////////////////////////////////////////////
-/// HASH TABLE CLASS
-////////////////////////////////////////////////////////////////////////////////
-
-void
-NaiveParallelRobinHoodHashTable::print() {
-  LOG_TRACE("Enter");
-  std::cout << "(Length: " << this->length_ << "/Capacity: " << this->capacity_ << ") [\n";
-  for (size_t i = 0; i < this->capacity_; ++i) {
-    std::cout << "\t" << i << ": ";
-    const NaiveParallelBucket &bkt = this->buckets_[i];
-    bkt.lock();
-    bkt.print(this->capacity_);
-    std::cout << ",\n";
-    bkt.unlock();
-  }
-  std::cout << "]" << std::endl;
 }
 
 ErrorType
@@ -122,6 +112,7 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
   // 4.     If not, resize
   // 5. Insert (with swapping if necessary)
   HashCodeType hashcode = hash(key);
+  std::vector<size_t> locked_buckets;
   NaiveParallelBucket tmp = {.key = key,
                           .value = value,
                           .hashcode = hashcode,
@@ -132,14 +123,15 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
   // (if they are all sitting in a row) to insert something.
   while (true) {
     size_t home = get_home(tmp.hashcode, capacity);
-    const auto [status, offset] = get_wouldbe_offset(this->buckets_, tmp.key, tmp.hashcode, home);
+    const auto [status, offset] = this->get_wouldbe_offset(tmp.key, tmp.hashcode, home);
     switch (status) {
       case SearchStatus::found_match: {
         LOG_DEBUG("SearchStatus::found_match");
         size_t real_index = get_real_index(home, offset, capacity);
         NaiveParallelBucket &bkt = this->buckets_[real_index];
         bkt.value = tmp.value;
-        bkt.unlock();
+        this->mutexes_[real_index].unlock();
+        UNLOCK_ALL(locked_buckets);
         return ErrorType::ok;
       }
       case SearchStatus::found_swap: {
@@ -149,7 +141,7 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
         NaiveParallelBucket &bkt = this->buckets_[real_index];
         tmp.offset = offset;
         std::swap(bkt, tmp);
-        // bkt is unlocked by the swap
+        locked_buckets.push_back(real_index);
         continue;
       }
       case SearchStatus::found_hole: {
@@ -159,8 +151,11 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
         NaiveParallelBucket &bkt = this->buckets_[real_index];
         tmp.offset = offset;
         std::swap(bkt, tmp);
-        // bkt is unlocked by the swap
+        this->mutexes_[real_index].unlock();
+        this->meta_mutex_.lock();
         ++this->length_;
+        this->meta_mutex_.unlock();
+        UNLOCK_ALL(locked_buckets);
         return ErrorType::ok;
       }
       case SearchStatus::found_nohole:
@@ -178,13 +173,13 @@ NaiveParallelRobinHoodHashTable::search(KeyType key) {
   HashCodeType hashcode = hash(key);
   size_t home = get_home(hashcode, this->capacity_);
 
-  const auto [status, offset] = get_wouldbe_offset(this->buckets_, key, hashcode, home);
+  const auto [status, offset] = this->get_wouldbe_offset(key, hashcode, home);
   switch (status) {
     case SearchStatus::found_match: {
       size_t real_index = get_real_index(home, offset, this->capacity_);
       const NaiveParallelBucket &bkt = this->buckets_[real_index];
       ValueType v = bkt.value;
-      bkt.unlock();
+      this->mutexes_[real_index].unlock();
       return v;
     }
     case SearchStatus::found_hole:
@@ -203,7 +198,7 @@ NaiveParallelRobinHoodHashTable::remove(KeyType key) {
   HashCodeType hashcode = hash(key);
   size_t home = get_home(hashcode, this->capacity_);
 
-  const auto [status, offset] = get_wouldbe_offset(this->buckets_, key, hashcode, home);
+  const auto [status, offset] = this->get_wouldbe_offset(key, hashcode, home);
   switch (status) {
     case SearchStatus::found_match: {
       for (size_t i = 0; i < this->capacity_; ++i) {
@@ -212,13 +207,15 @@ NaiveParallelRobinHoodHashTable::remove(KeyType key) {
         NaiveParallelBucket &bkt = this->buckets_[real_index];
         size_t next_real_index = get_real_index(home, offset + i + 1, this->capacity_);
         NaiveParallelBucket &next_bkt = this->buckets_[next_real_index];
-        next_bkt.lock();
+          this->mutexes_[next_real_index].lock();
         // Next element is empty or already in its home bucket
         if (next_bkt.is_empty() || next_bkt.offset == 0) {
           bkt.invalidate();
-          bkt.unlock();
-          next_bkt.unlock();
+          this->mutexes_[real_index].unlock();
+          this->mutexes_[next_real_index].unlock();
+          this->meta_mutex_.lock();
           --this->length_;
+          this->meta_mutex_.unlock();
           return ErrorType::ok;
         }
         // I argue that this sliding is efficient if the average home has only a
@@ -226,18 +223,17 @@ NaiveParallelRobinHoodHashTable::remove(KeyType key) {
         // elements belonging to the same home, over which it may leap-frog.
         bkt = std::move(next_bkt);
         --bkt.offset;
-        // Now, next_bkt is the old locked bucket
-        next_bkt.unlock();
+        this->mutexes_[real_index].unlock();
       }
       assert(0 && "impossible! Should have a hole");
     }
     // Not found
     case SearchStatus::found_hole:
-    case SearchStatus::found_swap:
+    case SearchStatus::found_swap: {
       size_t real_index = get_real_index(home, offset, this->capacity_);
-      NaiveParallelBucket &bkt = this->buckets_[real_index];
-      bkt.unlock();
+      this->mutexes_[real_index].unlock();
       return ErrorType::e_notfound;
+    }
     case SearchStatus::found_nohole:
       return ErrorType::e_notfound;
     default:
