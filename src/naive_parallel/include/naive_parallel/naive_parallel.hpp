@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <mutex>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -25,6 +26,7 @@ struct NaiveParallelBucket {
   // we can fit this bucket into 4 words, which is more amenable to the hardware.
   // A value of SIZE_MAX would be attrocious for performance anyways.
   size_t offset = SIZE_MAX;
+  std::mutex mutex;
 
   bool
   is_empty() const;
@@ -48,19 +50,19 @@ struct NaiveParallelBucket {
 ////////////////////////////////////////////////////////////////////////////////
 
 /// @brief  Get real bucket index.
-size_t
+static size_t
 get_real_index(const size_t home, const size_t offset, const size_t capacity);
 
 /// @brief  Get offset from home or where it would be if not found.
 ///         Return SIZE_MAX if no hole is found.
-std::pair<SearchStatus, size_t>
-get_wouldbe_offset(const std::vector<NaiveParallelBucket> &buckets_buf,
+static std::pair<SearchStatus, size_t>
+get_wouldbe_offset(      std::vector<NaiveParallelBucket> &buckets_buf,
                    const KeyType key,
                    const HashCodeType hashcode,
                    const size_t home);
 
 /// @brief  Insert but assume no resize is necessary.
-ErrorType
+static ErrorType
 insert_without_resize(      std::vector<NaiveParallelBucket> &tmp_buckets,
                       const KeyType key,
                       const ValueType value,
@@ -73,7 +75,7 @@ insert_without_resize(      std::vector<NaiveParallelBucket> &tmp_buckets,
 class NaiveParallelRobinHoodHashTable {
 public:
   void
-  print() const;
+  print();
 
   /// @brief Insert <key, value> pair.
   ///
@@ -86,7 +88,7 @@ public:
   ///
   /// @return 0 on found; 1 otherwise.
   std::optional<ValueType>
-  search(KeyType key) const;
+  search(KeyType key);
 
   /// @brief Remove <key, value> pair.
   /// N.B. 'delete' is a keyword, so I used 'remove'.
@@ -96,7 +98,7 @@ public:
   remove(KeyType key);
 
   std::vector<ValueType> 
-  getElements() const;
+  getElements();
 
 
 
@@ -107,5 +109,4 @@ private:
 
   ErrorType
   resize(size_t new_size);
-
 };
