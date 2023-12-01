@@ -1,13 +1,12 @@
 #pragma once
 
-#include <atomic>
+#include <cassert>
 #include <cstdint>
 #include <iostream>
 #include <mutex>
-#include <thread>
-#include <tuple>
-#include <unordered_map>
+#include <optional>
 #include <utility>
+#include <tuple>
 #include <vector>
 
 #include "common/logger.hpp"
@@ -19,182 +18,97 @@
 /// HELPER CLASSES
 ////////////////////////////////////////////////////////////////////////////////
 
-enum class InsertStatus {
-    // Successful insertion
-    inserted_at_home,
-    updated_at_home,
-    inserted,
-    updated,
-    // Unsuccessful insertion
-    not_inserted,
-};
+/// @brief  Bucket for the Robin Hood hash table.
+struct NaiveParallelBucket {
+  KeyType key = 0;
+  ValueType value = 0;
+  HashCodeType hashcode = 0;
+  // A value of SIZE_MAX means that the bucket is empty. I do this hack so that
+  // we can fit this bucket into 4 words, which is more amenable to the hardware.
+  // A value of SIZE_MAX would be attrocious for performance anyways.
+  OffsetType offset = offset_invalid;
 
-class SegmentLock {
-public:
-    /// We want the AtomicCounter to allow for overflow. This means that we should
-    /// not use ordering operators to allow for overflow. This also makes the
-    /// assumption that the AtomicCounter will not be incremented until it overflows
-    /// and reaches the formerly held value again.
-    using Version = size_t;
-    using AtomicVersion = std::atomic<Version>;
+  bool
+  is_empty() const;
 
-    Version
-    get_version();
+  void
+  invalidate();
 
-    bool
-    is_locked();
+  bool
+  equal_by_key(const KeyType key, const HashCodeType hashcode) const;
 
-    void
-    lock();
-
-    void
-    unlock();
-
-private:
-    // Use a recursive mutex, which allows multiple lock operations by the same
-    // thread on the lock. However, if the number of locks exceeds an
-    // unspecified limit, then it will throw a std::system_error.
-    std::recursive_mutex mutex_;
-    // N.B. Using version_ = 0 causes the linter to complain that the copying
-    //      invokes a deleted constructor
-    // N.B. Using version_(0) will cause the compile to parse version_ as a
-    //      function.
-    // N.B. This needs to be atomic since it can be read from multiple threads
-    //      via get_version() while its being modified by one thread.
-    AtomicVersion version_{0};
-    // N.B. We use unsigned since locked_count_ is bounded by the number of
-    //      elements within a segment, assuming we only lock once per element.
-    unsigned locked_count_{0};
+  /// @brief  Pretty print bucket
+  ///
+  /// This prints in the format (using Python's f-string syntax):
+  /// f"({hashcode}=>{home}+{offset}) {key}: {value}"
+  void
+  print(const size_t capacity) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-/// HELPER CLASSES
+/// HASH TABLE CLASS
 ////////////////////////////////////////////////////////////////////////////////
 
-static constexpr KeyType bucket_empty_key = static_cast<KeyType>(-1);
-static constexpr KeyType bucket_locked_key = static_cast<KeyType>(-2);
-
-/// We are assuming this will be packed into 8 (or 16... if we've changed the
-/// size of the KeyType/ValueType to int64_t) bytes so that we can atomically
-/// update both.
-struct KeyValue {
-
-    KeyType key = bucket_empty_key;
-    ValueType value = 0;
-
-    constexpr bool operator==(const KeyValue &) const = default;
-};
-
-using ParallelBucket = std::atomic<KeyValue>;
-
-/// We would want the following static assert here, because it would guarantee
-/// that we use atomic operations, rather than locks, as per the MIT paper.
-/// However, we cannot include it because it asserts that ParallelBucket is
-/// lock-free on ALL platforms, not just ours, and 16-byte atomics are not
-/// supported on all platforms.
-/// static_assert(ParallelBucket::is_always_lock_free);
-
-class ThreadManager {
+class NaiveParallelRobinHoodHashTable {
+  std::vector<std::tuple<NaiveParallelBucket, std::mutex>> buckets_{1<<20};
+  std::mutex meta_mutex_;
+  size_t length_ = 0;
+  size_t capacity_ = 1<<20;
 public:
-    ThreadManager(class ParallelRobinHoodHashTable *const hash_table);
+  void
+  print();
 
-    /// Lock the segment corresponding to the index.
-    /// TODO(dchu): refactor to 'lock_segment'
-    void
-    lock(size_t index);
+  std::pair<SearchStatus, OffsetType>
+  get_wouldbe_offset(
+    const KeyType key,
+    const HashCodeType hashcode,
+    const size_t home,
+    const std::vector<size_t> &locked_buckets
+  );
 
-    /// Release all segment locks.
-    /// TODO(dchu): refactor to 'unlock_all_segments'
-    void
-    release_all_locks();
+  /// @brief Insert <key, value> pair.
+  ///
+  /// @return 0 on good; 1 on failure
+  /// @exception throws any exception because I don't want to catch exceptions.
+  ErrorType
+  insert(KeyType key, ValueType value);
 
-    /// @brief Capture version numbers of an index
-    /// TODO(dchu): refactor to 'speculate'
-    bool
-    speculate_index(size_t index);
+  /// @brief Search for <key, value>.
+  ///
+  /// @return 0 on found; 1 otherwise.
+  std::optional<ValueType>
+  search(KeyType key);
 
-    bool
-    finish_speculate();
+  /// @brief Remove <key, value> pair.
+  /// N.B. 'delete' is a keyword, so I used 'remove'.
+  ///
+  /// @return 0 on found; 1 otherwise.
+  ErrorType
+  remove(KeyType key);
+
+  std::vector<ValueType>
+  getElements();
 
 private:
-    class ParallelRobinHoodHashTable *const hash_table_;
-    std::vector<size_t> locked_segments_;
-    std::vector<std::pair<size_t, SegmentLock::Version>> segment_lock_index_and_version_;
+  __attribute__((always_inline)) NaiveParallelBucket &
+  get_bucket(const size_t index)
+  {
+    std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+    return std::get<0>(r);
+  }
+
+  __attribute__((always_inline)) void
+  lock_index(const size_t index)
+  {
+    std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+    std::get<1>(r).lock();
+  }
+
+  __attribute__((always_inline)) void
+  unlock_index(const size_t index)
+  {
+    std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+    std::get<1>(r).unlock();
+  }
 };
 
-size_t
-get_segment_index(size_t index);
-
-class ParallelRobinHoodHashTable {
-public:
-    friend class ThreadManager;
-
-    bool
-    insert(KeyType key, ValueType value);
-
-    void
-    insert_or_update(KeyType key, ValueType value);
-
-    bool
-    remove(KeyType key);
-
-    std::pair<ValueType, bool>
-    find(KeyType key);
-
-    /// Call this when adding a new thread to work on the hash table.
-    void
-    add_thread_lock_manager();
-
-    /// Call this when removing a worker thread that worked on the hash table.
-    void
-    remove_thread_lock_manager();
-
-private:
-    std::vector<ParallelBucket> buckets_ = std::vector<ParallelBucket>(1024 + 10);
-    std::vector<SegmentLock> segment_locks_;
-    size_t length_ = 0;
-    size_t capacity_ = 1024;
-    size_t capacity_with_buffer_ = 1024 + 10;
-    // N.B. this data structure within the hash table itself is necessary since
-    //      we want a thread manager both (a) per thread and (b) per hash table.
-    std::unordered_map<std::thread::id, ThreadManager> thread_managers_;
-
-    ////////////////////////////////////////////////////////////////////////////
-    /// HELPER FUNCTIONS
-    ////////////////////////////////////////////////////////////////////////////
-    std::pair<size_t, bool>
-    find_next_index_lock(ThreadManager &manager,
-                         size_t start_index,
-                         KeyType key);
-
-    ThreadManager &
-    get_thread_lock_manager();
-
-    bool
-    compare_and_set_key_val(size_t index, KeyValue prev_kv, const KeyValue &new_kv);
-
-    KeyValue
-    do_atomic_swap(const KeyValue &swap_entry, size_t index);
-
-    KeyValue
-    atomic_load_key_val(size_t index);
-
-    ////////////////////////////////////////////////////////////////////////////
-    /// HELPER FUNCTIONS
-    ////////////////////////////////////////////////////////////////////////////
-
-    /// @brief  Try to insert the key and value into the home bucket.
-    ///
-    /// @details    This assumes that the default-constructed key value is invalid.
-    ///             This also assumes that the offset is by default 0 and the hashcode
-    ///             can no longer be part of the data structure, because it cannot
-    ///             be updated along side the key-value pair atomically.
-    InsertStatus
-    distance_zero_insert(KeyType key, ValueType value, size_t dist_zero_slot);
-
-    bool
-    locked_insert(ParallelBucket &entry_to_insert, size_t swap_index);
-
-    std::tuple<ValueType, bool, bool>
-    find_speculate(KeyType key, size_t start_index);
-};
