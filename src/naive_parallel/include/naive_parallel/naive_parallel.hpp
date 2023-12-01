@@ -28,6 +28,12 @@ struct NaiveParallelBucket {
   size_t offset = SIZE_MAX;
   std::mutex mutex;
 
+  void
+  lock();
+
+  void
+  unlock();
+
   bool
   is_empty() const;
 
@@ -44,29 +50,6 @@ struct NaiveParallelBucket {
   void
   print(const size_t capacity) const;
 };
-
-////////////////////////////////////////////////////////////////////////////////
-/// STATIC HELPER FUNCTIONS
-////////////////////////////////////////////////////////////////////////////////
-
-/// @brief  Get real bucket index.
-static size_t
-get_real_index(const size_t home, const size_t offset, const size_t capacity);
-
-/// @brief  Get offset from home or where it would be if not found.
-///         Return SIZE_MAX if no hole is found.
-static std::pair<SearchStatus, size_t>
-get_wouldbe_offset(      std::vector<NaiveParallelBucket> &buckets_buf,
-                   const KeyType key,
-                   const HashCodeType hashcode,
-                   const size_t home);
-
-/// @brief  Insert but assume no resize is necessary.
-static ErrorType
-insert_without_resize(      std::vector<NaiveParallelBucket> &tmp_buckets,
-                      const KeyType key,
-                      const ValueType value,
-                      const HashCodeType hashcode);
 
 ////////////////////////////////////////////////////////////////////////////////
 /// HASH TABLE CLASS
