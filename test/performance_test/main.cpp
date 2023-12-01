@@ -3,7 +3,7 @@
 #include <iostream>
 #include <thread>
 #include <vector>
-
+#include <chrono>
 #include <ctime>
 
 #include "common/logger.hpp"
@@ -93,10 +93,9 @@ run_parallel_worker(NaiveParallelRobinHoodHashTable &hash_table,
 double
 run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num_workers)
 {
-    clock_t start_time, end_time;
     std::vector<std::thread> workers;
 
-    start_time = clock();
+    const auto start_time = std::chrono::steady_clock::now();
     NaiveParallelRobinHoodHashTable hash_table;
     for (size_t i = 0; i < num_workers; ++i) {
         workers.emplace_back(run_parallel_worker, std::ref(hash_table), std::ref(traces), i, num_workers);
@@ -104,8 +103,8 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
     for (auto &w : workers) {
         w.join();
     }
-    end_time = clock();
-    double duration_in_seconds = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
+    const auto end_time = std::chrono::steady_clock::now();
+    double duration_in_seconds = std::chrono::duration<double>(end_time - start_time).count();
     std::cout << "Time in sec: " << duration_in_seconds << std::endl;
     return duration_in_seconds;
 }
