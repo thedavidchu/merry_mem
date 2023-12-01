@@ -40,7 +40,7 @@ def run_performance_tests(
         with open(output_file) as f:
             j = json.load(f)
         sequential_time = j["sequential"]
-        naive_parallel_time = j["naive_parallel"]
+        naive_parallel_times = j["naive_parallel"]
         parallel_times = j["parallel"]
         plot_performance(
             sequential_time_in_sec=sequential_time,
