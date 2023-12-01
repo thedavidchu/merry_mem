@@ -58,7 +58,7 @@ public:
   void
   print();
 
-  std::pair<SearchStatus, size_t>
+  std::pair<SearchStatus, uint32_t>
   get_wouldbe_offset(
     const KeyType key,
     const HashCodeType hashcode,

@@ -11,8 +11,8 @@
 ///       pointer value.
 /// N.B.  I do not use *_t because this is a reserved name in POSIX.
 /// N.B.  I also named them something unique so it's easy to find/replace.
-using KeyType = uint64_t;
-using ValueType = uint64_t;
+using KeyType = uint32_t;
+using ValueType = uint32_t;
 /// N.B.  I use 'HashCode' because I want to distinguish 'hash' (verb) and
 ///       'hash' (noun). Thus, I use 'hash code' to denote the latter.
-using HashCodeType = uint64_t;
+using HashCodeType = uint32_t;

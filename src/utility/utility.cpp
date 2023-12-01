@@ -14,7 +14,7 @@ hash(const KeyType key) {
   k =  (k >> 31) ^ k;
   // We could theoretically use `reinterpret_cast` to ensure there is no
   // overhead in this cast because HashCodeType is typedef'ed to size_t.
-  return k;
+  return static_cast<HashCodeType>(k);
 }
 
 size_t
