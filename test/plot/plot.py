@@ -40,10 +40,12 @@ def run_performance_tests(
         with open(output_file) as f:
             j = json.load(f)
         sequential_time = j["sequential"]
+        naive_parallel_time = j["naive_parallel"]
         parallel_times = j["parallel"]
         plot_performance(
             sequential_time_in_sec=sequential_time,
             parallel_num_workers=[x for x in range(1, 32 + 1)],
+            naive_parallel_time_in_sec=naive_parallel_times,
             parallel_time_in_sec=parallel_times,
             workload_name=f"{m} operators",
             insert_ratio=r[0],
@@ -58,7 +60,9 @@ def run_performance_tests(
 def plot_performance(
     *,
     sequential_time_in_sec: float,
+    # For both naive and parallel implementations
     parallel_num_workers: List[float],
+    naive_parallel_time_in_sec: List[float],
     parallel_time_in_sec: List[float],
     workload_name: str,
     insert_ratio: int,
@@ -86,6 +90,7 @@ def plot_performance(
 
     # Plot data
     plt.axhline(y=sequential_time_in_sec, label="Sequential", color="tab:blue", linestyle="dashed")
+    plt.plot(parallel_num_workers, naive_parallel_time_in_sec, label="Naive Parallel", c="tab:green", linestyle="solid")
     plt.plot(parallel_num_workers, parallel_time_in_sec, label="Parallel", c="tab:red", linestyle="solid")
 
     # Finish up plot and save
@@ -97,6 +102,7 @@ def main():
     plot_performance(
         sequential_time_in_sec=10.0,
         parallel_num_workers=[x for x in range(1, 32 + 1)],
+        naive_parallel_time_in_sec=[x + 1 for x in range(1, 32 + 1)],
         parallel_time_in_sec=[x for x in range(1, 32 + 1)],
         workload_name="Ficticious Example",
         insert_ratio=1,
