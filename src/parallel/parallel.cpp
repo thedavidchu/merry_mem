@@ -1,8 +1,10 @@
 #include <cassert>
+#include <iostream>
+#include <memory>
 
 #include "parallel/parallel.hpp"
 
-constexpr unsigned indices_per_segment = 16;
+static std::mutex cout_mutex;
 
 ////////////////////////////////////////////////////////////////////////////////
 /// SEGMENT LOCK
@@ -17,12 +19,8 @@ SegmentLock::get_version()
 bool
 SegmentLock::is_locked()
 {
-    bool locked_by_me = this->mutex_.try_lock();
-    if (locked_by_me) {
-        this->mutex_.unlock();
-        return false;
-    }
-    return true;
+    assert(false);
+    return false;
 }
 
 void
@@ -30,17 +28,20 @@ SegmentLock::lock()
 {
     this->mutex_.lock();
     ++this->version_;
-    ++this->locked_count_;
+    // ++this->locked_count_;
 }
 
 void
 SegmentLock::unlock()
 {
-    for (unsigned i = 0; i < this->locked_count_; ++i) {
-        this->mutex_.unlock();
-    }
+    // make a local copy, then reset locked count while we still have the lock.
+    // const unsigned locked_count = this->locked_count_;
+    // this->locked_count_ = 0;
 
-    this->locked_count_ = 0;
+    // Then, release the lock.
+    // for (unsigned i = 0; i < locked_count; ++i) {
+        this->mutex_.unlock();
+    // }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -48,25 +49,53 @@ SegmentLock::unlock()
 ////////////////////////////////////////////////////////////////////////////////
 
 ThreadManager::ThreadManager(ParallelRobinHoodHashTable *const hash_table)
-    : hash_table_(hash_table)
+    : 
+    hash_table_(hash_table),
+    is_segment_locked_(hash_table_->segment_locks_.size())
 {
+    // locked_segments_.reserve(hash_table->capacity_);
 }
 
 void
 ThreadManager::lock(size_t index)
 {
+    std::vector<std::unique_lock<SegmentLock>> locked_segments;
+
     size_t segment_index = get_segment_index(index);
-    this->hash_table_->segment_locks_[segment_index].lock();
-    this->locked_segments_.push_back(segment_index);
+    if (this->is_segment_locked_[segment_index]) {
+        return;
+    }
+
+    // this->locked_segments_.emplace_back(this->hash_table_->segment_locks_[segment_index]);
+    this->is_segment_locked_[segment_index] = true;
+    {
+        std::scoped_lock lock(cout_mutex);
+        std::cout << "thread id: " << std::this_thread::get_id() << " segment index: " << segment_index << " ACQUIRED" << std::endl;
+    }
+
+    // std::cout << "thread id: " << std::this_thread::get_id() << std::endl;
+    // for (auto& s : this->locked_segments_){
+    //     std::cout << s << " " ;
+    // }
+    // std::cout << std::endl;
 }
 
 void
 ThreadManager::release_all_locks()
 {
-    for (auto i : this->locked_segments_) {
+#if 0
+    for (size_t i : this->locked_segments_) {
         this->hash_table_->segment_locks_[i].unlock();
+        this->is_segment_locked_[i] = false;
+        {
+            std::scoped_lock lock(cout_mutex);
+            std::cout << "thread id: " << std::this_thread::get_id() << " segment index: " << i << " RELEASED" << std::endl;
+        }
     }
     this->locked_segments_.clear();
+#else
+    // this->locked_segments_.clear();
+#endif
 }
 
 bool
@@ -88,7 +117,8 @@ ThreadManager::speculate_index(size_t index)
     // 2. Get lock count
     // 3. Search for key...             3. Modify hash table...
     SegmentLock::Version segment_lock_version = segment_lock.get_version();
-    bool segment_locked = segment_lock.is_locked();
+    // bool segment_locked = segment_lock.is_locked();
+    bool segment_locked = this->is_segment_locked_[segment_index];
     if (!segment_locked) {
         this->segment_lock_index_and_version_.emplace_back(segment_index, segment_lock_version);
         return true;
@@ -103,12 +133,12 @@ ThreadManager::finish_speculate()
         SegmentLock::Version new_seg_version = this->hash_table_->segment_locks_[seg_idx].get_version();
         if (old_seg_version != new_seg_version) {
             this->segment_lock_index_and_version_.clear();
-            this->locked_segments_.clear();
+            // this->locked_segments_.clear();
             return false;
         }
     }
     this->segment_lock_index_and_version_.clear();
-    this->locked_segments_.clear();
+    // this->locked_segments_.clear();
     return true;
 }
 
@@ -117,7 +147,6 @@ get_segment_index(size_t index)
 {
     return index / indices_per_segment;
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 /// HASH TABLE
@@ -162,19 +191,19 @@ ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
     ThreadManager manager = this->get_thread_lock_manager();
     KeyValue new_kv = {.key=key, .value=value};
     ParallelBucket entry_to_insert(new_kv);
-    auto [next_index, found] = this->find_next_index_lock(manager, home, key);
+    // auto [next_index, found] = this->find_next_index_lock(manager, home, key);
 
-    // locked search + update 
-    if (found) {
-        bool updated = this->compare_and_set_key_val(next_index, this->buckets_[next_index].load(), new_kv);
-        if (updated == true) {
-            manager.release_all_locks();
-            return true;
-        }
-    }
+    // // locked search + update 
+    // if (found) {
+    //     bool updated = this->compare_and_set_key_val(next_index, this->buckets_[next_index].load(), new_kv);
+    //     if (updated == true) {
+    //         manager.release_all_locks();
+    //         return true;
+    //     }
+    // }
 
     // Locked insert
-    bool inserted = this->locked_insert(entry_to_insert, next_index);
+    bool inserted = this->locked_insert(entry_to_insert, home);
     if (inserted == true) {
         manager.release_all_locks();
         return true;
@@ -275,19 +304,33 @@ ParallelRobinHoodHashTable::find(KeyType key)
 void
 ParallelRobinHoodHashTable::add_thread_lock_manager()
 {
+#if 0
     std::thread::id t_id = std::this_thread::get_id();
+    this->thread_managers_mutex_.lock();
+    std::cout << "created new thread: id " << t_id << std::endl;
     assert(!this->thread_managers_.contains(t_id) &&
            "thread manager for current thread already exists");
-    this->thread_managers_.emplace(t_id, ThreadManager(this));
+    // std::cout << "Locking..." << std::endl;
+    
+    // std::cout << "Locked." << std::endl;
+    this->thread_managers_.emplace(t_id, std::make_unique<ThreadManager>(this));
+    // std::cout << "Unlocking..." << std::endl;
+    this->thread_managers_mutex_.unlock();
+    // std::cout << "Unlocked!" << std::endl;
+#endif
 }
 
 void
 ParallelRobinHoodHashTable::remove_thread_lock_manager()
 {
+#if 0
     std::thread::id t_id = std::this_thread::get_id();
+    this->thread_managers_mutex_.lock();
     assert(this->thread_managers_.contains(t_id) &&
            "thread manager for current thread DNE");
     this->thread_managers_.erase(t_id);
+    this->thread_managers_mutex_.unlock();
+#endif
 }
 
 
@@ -300,9 +343,9 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
     const size_t capacity_with_buffer = this->capacity_with_buffer_;
     for (size_t i = 0; i < capacity_with_buffer; ++i) {
         const size_t real_index = start_index + i;
-        if (real_index == capacity_with_buffer)
+        if (real_index >= capacity_with_buffer)
         {
-            assert("the map should never be completely full" && false);
+            // assert("the map should never be completely full" && false);
             return {SIZE_MAX, false};
         }
         manager.lock(real_index);
@@ -324,10 +367,24 @@ ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
 ThreadManager &
 ParallelRobinHoodHashTable::get_thread_lock_manager()
 {
+#if 0
     std::thread::id t_id = std::this_thread::get_id();
+    this->thread_managers_mutex_.lock();
+    if (!this->thread_managers_.contains(t_id)) {
+        std::cout << "thread manager does not contain " << t_id << std::endl;
+        for (auto& [key, value]: this->thread_managers_) {  
+            std::cout << key << " " << value << std::endl; 
+        }
+    }
     assert(this->thread_managers_.contains(t_id) &&
            "thread manager for current thread DNE");
-    return this->thread_managers_.at(t_id);
+    ThreadManager &r = *this->thread_managers_.at(t_id);
+    this->thread_managers_mutex_.unlock();
+    return r;
+#else
+    thread_local ThreadManager manager(this);
+    return manager;
+#endif
 }
 
 bool
@@ -384,7 +441,14 @@ ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_
             return true;
         }
         auto [next_swap_index, found] = this->find_next_index_lock(manager, swap_index, entry_to_swap.key);
-        swap_index = next_swap_index;
+        if (found) {
+            swap_index = next_swap_index;
+        } else {
+            return false;
+        }
+        if (swap_index == next_swap_index){
+            return true;
+        } 
     }
 }
 
@@ -399,7 +463,7 @@ ParallelRobinHoodHashTable::find_speculate(KeyType key, size_t start_index)
     
     size_t offset = index - get_home(hash(atomic_load_key_val(index).key), this->capacity_);
 
-    for(size_t distance = 0; offset >= distance; ++distance){
+    for(size_t distance = 0; offset >= distance && index <= this->capacity_with_buffer_ ; ++distance){
         (void)manager.speculate_index(index);
         KeyValue current_bucket = atomic_load_key_val(index);
         if(current_bucket.key == key){

@@ -54,7 +54,7 @@ private:
     // Use a recursive mutex, which allows multiple lock operations by the same
     // thread on the lock. However, if the number of locks exceeds an
     // unspecified limit, then it will throw a std::system_error.
-    std::recursive_mutex mutex_;
+    std::mutex mutex_;
     // N.B. Using version_ = 0 causes the linter to complain that the copying
     //      invokes a deleted constructor
     // N.B. Using version_(0) will cause the compile to parse version_ as a
@@ -64,7 +64,7 @@ private:
     AtomicVersion version_{0};
     // N.B. We use unsigned since locked_count_ is bounded by the number of
     //      elements within a segment, assuming we only lock once per element.
-    unsigned locked_count_{0};
+    // unsigned locked_count_{0};
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -94,6 +94,8 @@ using ParallelBucket = std::atomic<KeyValue>;
 /// supported on all platforms.
 /// static_assert(ParallelBucket::is_always_lock_free);
 
+constexpr unsigned indices_per_segment = 16;
+
 class ThreadManager {
 public:
     ThreadManager(class ParallelRobinHoodHashTable *const hash_table);
@@ -118,8 +120,10 @@ public:
 
 private:
     class ParallelRobinHoodHashTable *const hash_table_;
-    std::vector<size_t> locked_segments_;
+    // std::vector<size_t> locked_segments_;
+    std::vector<bool> is_segment_locked_;
     std::vector<std::pair<size_t, SegmentLock::Version>> segment_lock_index_and_version_;
+    std::vector<std::unique_lock<SegmentLock>> locked_segments_;
 };
 
 size_t
@@ -149,15 +153,18 @@ public:
     void
     remove_thread_lock_manager();
 
-private:
-    std::vector<ParallelBucket> buckets_ = std::vector<ParallelBucket>(1024 + 10);
-    std::vector<SegmentLock> segment_locks_;
+public:
+    static constexpr size_t initial_capacity = 1024;
+    static constexpr size_t initial_capacity_with_buffer =  initial_capacity + 10;
+    std::vector<ParallelBucket> buckets_{initial_capacity_with_buffer};
+    std::vector<SegmentLock> segment_locks_{(initial_capacity_with_buffer + (indices_per_segment - 1)) / indices_per_segment};
     size_t length_ = 0;
-    size_t capacity_ = 1024;
-    size_t capacity_with_buffer_ = 1024 + 10;
+    size_t capacity_ = initial_capacity;
+    size_t capacity_with_buffer_ = initial_capacity_with_buffer;
     // N.B. this data structure within the hash table itself is necessary since
     //      we want a thread manager both (a) per thread and (b) per hash table.
-    std::unordered_map<std::thread::id, ThreadManager> thread_managers_;
+    // std::unordered_map<std::thread::id, std::unique_ptr<ThreadManager>> thread_managers_;
+    // std::mutex thread_managers_mutex_;
 
     ////////////////////////////////////////////////////////////////////////////
     /// HELPER FUNCTIONS

@@ -55,6 +55,7 @@ run_parallel_worker(ParallelRobinHoodHashTable &hash_table,
                     const size_t num_workers)
 {
     size_t trace_size = traces.size();
+    hash_table.add_thread_lock_manager();
 
     for (size_t i = t_id; i < trace_size; i += num_workers) {
         const Trace &t = traces[i];
@@ -78,6 +79,7 @@ run_parallel_worker(ParallelRobinHoodHashTable &hash_table,
         }
         }
     }
+    hash_table.remove_thread_lock_manager();
 }
 
 double
@@ -96,11 +98,60 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
     }
     end_time = clock();
     double duration_in_seconds = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
-    std::cout << "Time in sec: " << duration_in_seconds << std::endl;
+    std::cout << "Parallel test (" << num_workers << ") threads: " << duration_in_seconds << " seconds" << std::endl;
     return duration_in_seconds;
 }
 
 int main(int argc, char *argv[]) {
+#if 0
+    ParallelRobinHoodHashTable table;
+    std::atomic_bool done;
+    std::vector<std::thread> threads;
+    threads.emplace_back([&]
+    {
+        table.add_thread_lock_manager();
+        auto &manager = table.get_thread_lock_manager();
+        manager.lock(0);
+        manager.lock(1);
+        manager.lock(0);
+        manager.release_all_locks();
+        manager.lock(1);
+        manager.lock(16);
+        manager.release_all_locks();
+        done = true;
+    });
+    threads.emplace_back([&]
+    {
+        table.add_thread_lock_manager();
+        while (!done) { }
+        auto &manager = table.get_thread_lock_manager();
+        manager.lock(0);
+        manager.lock(0);
+        manager.release_all_locks();
+        manager.lock(1);
+        manager.lock(2);
+        manager.release_all_locks();
+    });
+    threads.emplace_back([&]
+    {
+        table.add_thread_lock_manager();
+        while (!done) { }
+        auto &manager = table.get_thread_lock_manager();
+        manager.lock(0);
+        manager.lock(0);
+        manager.lock(1);
+        manager.lock(2);
+        manager.lock(16);
+        manager.release_all_locks();
+    });
+
+    for (auto &thread : threads)
+    {
+        thread.join();
+    }
+
+    return 0;
+#else
     PerformanceTestArguments args = parse_performance_test_arguments(argc, argv);
     args.print();
 
@@ -114,11 +165,12 @@ int main(int argc, char *argv[]) {
     }
     LOG_INFO("Finished generating traces");
 
-    double seq_time_in_sec = run_sequential_performance_test(traces);
-    LOG_INFO("Finished sequential test");
+    double seq_time_in_sec = 0.0;
+    // double seq_time_in_sec = run_sequential_performance_test(traces);
+    // LOG_INFO("Finished sequential test");
 
     std::vector<double> parallel_time_in_sec;
-    for (size_t w = 1; w <= 32; ++w) {
+    for (size_t w = 2; w <= 32; ++w) {
         double time = run_parallel_performance_test(traces, w);
         parallel_time_in_sec.push_back(time);
     }
@@ -126,4 +178,5 @@ int main(int argc, char *argv[]) {
     record_performance_test_times(args, seq_time_in_sec, parallel_time_in_sec);
 
     return 0;
+#endif
 }

@@ -9,8 +9,8 @@ struct PerformanceTestArguments {
     unsigned insert_ratio = 1;
     unsigned search_ratio = 1;
     unsigned remove_ratio = 1;
-    size_t max_num_keys = 100000;
-    size_t goal_trace_length = 100000000;
+    size_t max_num_keys = 10000;
+    size_t goal_trace_length = 1000000;
     std::string trace_op_mode = "random";
     std::string output_json_path = "output.json";
 

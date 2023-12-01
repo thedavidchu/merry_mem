@@ -60,7 +60,7 @@ generate_random_traces(const size_t max_num_unique_elements,
             op = TraceOperator::remove;
         }
         key = zrng.next();
-        traces.emplace_back(op, key, value);
+        traces.push_back({op, key, value});
         ++value;
     }
     return traces;
@@ -96,19 +96,19 @@ generate_ordered_traces(const size_t max_num_unique_elements,
     for (size_t i = 0; i < num_inserts; ++i) {
         TraceOperator op = TraceOperator::insert;
         KeyType key = zrng.next();
-        traces.emplace_back(op, key, value);
+        traces.push_back({op, key, value});
         ++value;
     }
     for (size_t i = 0; i < num_searches; ++i) {
         TraceOperator op = TraceOperator::search;
         KeyType key = zrng.next();
-        traces.emplace_back(op, key, value);
+        traces.push_back({op, key, value});
         ++value;
     }
     for (size_t i = 0; i < num_removes; ++i) {
         TraceOperator op = TraceOperator::remove;
         KeyType key = zrng.next();
-        traces.emplace_back(op, key, value);
+        traces.push_back({op, key, value});
         ++value;
     }
     return traces;
