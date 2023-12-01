@@ -51,14 +51,17 @@ struct NaiveParallelBucket {
 
 class NaiveParallelRobinHoodHashTable {
 public:
-  void
-  print();
+  NaiveParallelBucket &
+  get_bucket(const size_t index);
 
   void
   lock_index(const size_t index);
 
   void
   unlock_index(const size_t index);
+
+  void
+  print();
 
   std::pair<SearchStatus, size_t>
   get_wouldbe_offset(

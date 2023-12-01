@@ -62,18 +62,11 @@ get_real_index(const size_t home, const size_t offset, const size_t capacity) {
 /// HASH TABLE CLASS
 ////////////////////////////////////////////////////////////////////////////////
 
-/// NOTE: NOT THREAD SAFE!!!
-void
-NaiveParallelRobinHoodHashTable::print() {
-  LOG_TRACE("Enter");
-  std::cout << "(Length: " << this->length_ << "/Capacity: " << this->capacity_ << ") [\n";
-  for (size_t i = 0; i < this->capacity_; ++i) {
-    std::cout << "\t" << i << ": ";
-    const NaiveParallelBucket &bkt = this->buckets_[i];
-    bkt.print(this->capacity_);
-    std::cout << ",\n";
-  }
-  std::cout << "]" << std::endl;
+NaiveParallelBucket &
+NaiveParallelBucket::get_bucket(const size_t index)
+{
+  std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+  return std::get<0>(r);
 }
 
 void
@@ -89,6 +82,20 @@ NaiveParallelBucket::unlock_index(const size_t index)
   std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
   std::get<1>(r).unlock();
 }
+/// NOTE: NOT THREAD SAFE!!!
+void
+NaiveParallelRobinHoodHashTable::print() {
+  LOG_TRACE("Enter");
+  std::cout << "(Length: " << this->length_ << "/Capacity: " << this->capacity_ << ") [\n";
+  for (size_t i = 0; i < this->capacity_; ++i) {
+    std::cout << "\t" << i << ": ";
+    const NaiveParallelBucket &bkt = this->get_bucket(i);
+    bkt.print(this->capacity_);
+    std::cout << ",\n";
+  }
+  std::cout << "]" << std::endl;
+}
+
 
 #define UNLOCK_ALL(vec) for (auto idx : vec) { this->unlock_index(idx); }
 
@@ -106,7 +113,7 @@ NaiveParallelRobinHoodHashTable::get_wouldbe_offset(
     if (std::find(locked_buckets.begin(), locked_buckets.end(), real_index) == locked_buckets.end()) {
       this->lock_index(real_index);
     }
-    const NaiveParallelBucket &bkt = this->buckets_[real_index];
+    const NaiveParallelBucket &bkt = this->get_bucket(real_index);
     // If not found
     if (bkt.is_empty()) {
       // This is first, because equality on an empty bucket is not well defined.
@@ -149,7 +156,7 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
       case SearchStatus::found_match: {
         LOG_DEBUG("SearchStatus::found_match");
         size_t real_index = get_real_index(home, offset, capacity);
-        NaiveParallelBucket &bkt = this->buckets_[real_index];
+        NaiveParallelBucket &bkt = this->get_bucket(real_index);
         bkt.value = tmp.value;
         this->unlock_index(real_index);
         UNLOCK_ALL(locked_buckets);
@@ -159,7 +166,7 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
         LOG_DEBUG("SearchStatus::found_swap");
         // NOTE(dchu): could be buggy
         size_t real_index = get_real_index(home, offset, capacity);
-        NaiveParallelBucket &bkt = this->buckets_[real_index];
+        NaiveParallelBucket &bkt = this->get_bucket(real_index);
         tmp.offset = offset;
         std::swap(bkt, tmp);
         locked_buckets.push_back(real_index);
@@ -169,7 +176,7 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
         LOG_DEBUG("SearchStatus::found_hole");
         // NOTE(dchu): could be buggy
         size_t real_index = get_real_index(home, offset, capacity);
-        NaiveParallelBucket &bkt = this->buckets_[real_index];
+        NaiveParallelBucket &bkt = this->get_bucket(real_index);
         tmp.offset = offset;
         std::swap(bkt, tmp);
         this->unlock_index(real_index);
@@ -198,7 +205,7 @@ NaiveParallelRobinHoodHashTable::search(KeyType key) {
   switch (status) {
     case SearchStatus::found_match: {
       size_t real_index = get_real_index(home, offset, this->capacity_);
-      const NaiveParallelBucket &bkt = this->buckets_[real_index];
+      const NaiveParallelBucket &bkt = this->get_bucket(real_index);
       ValueType v = bkt.value;
       this->unlock_index(real_index);
       return v;
@@ -229,9 +236,9 @@ NaiveParallelRobinHoodHashTable::remove(KeyType key) {
       for (size_t i = 0; i < this->capacity_; ++i) {
         // NOTE(dchu): real_index is the previous iteration's next_real_index
         size_t real_index = get_real_index(home, offset + i, this->capacity_);
-        NaiveParallelBucket &bkt = this->buckets_[real_index];
+        NaiveParallelBucket &bkt = this->get_bucket(real_index);
         size_t next_real_index = get_real_index(home, offset + i + 1, this->capacity_);
-        NaiveParallelBucket &next_bkt = this->buckets_[next_real_index];
+        NaiveParallelBucket &next_bkt = this->get_bucket(next_real_index);
         this->lock_index(next_real_index);
         // Next element is empty or already in its home bucket
         if (next_bkt.is_empty() || next_bkt.offset == 0) {
