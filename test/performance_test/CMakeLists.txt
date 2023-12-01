@@ -8,6 +8,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(performance_test_exe
     PRIVATE
     parallel_lib
+    naive_parallel_lib
     sequential_lib
     trace_lib
     utility_lib

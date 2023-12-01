@@ -1,4 +1,5 @@
 #include <algorithm>  // std::swap
+#include <optional>
 
 #include "naive_parallel/naive_parallel.hpp"
 
@@ -77,14 +78,19 @@ NaiveParallelRobinHoodHashTable::print() {
 #define UNLOCK_ALL(vec) for (auto idx : vec) { this->mutexes_[idx].unlock(); }
 
 std::pair<SearchStatus, size_t>
-NaiveParallelRobinHoodHashTable::get_wouldbe_offset(const KeyType key,
-                   const HashCodeType hashcode,
-                   const size_t home) {
+NaiveParallelRobinHoodHashTable::get_wouldbe_offset(
+  const KeyType key,
+  const HashCodeType hashcode,
+  const size_t home,
+  const std::vector<size_t> &locked_buckets
+) {
   LOG_TRACE("Enter");
   size_t capacity = this->buckets_.size();
   for (size_t i = 0; i < capacity; ++i) {
     size_t real_index = get_real_index(home, i, capacity);
-    this->mutexes_[real_index].lock();
+    if (std::find(locked_buckets.begin(), locked_buckets.end(), real_index) == locked_buckets.end()) {
+      this->mutexes_[real_index].lock();
+    }
     const NaiveParallelBucket &bkt = this->buckets_[real_index];
     // If not found
     if (bkt.is_empty()) {
@@ -123,7 +129,7 @@ NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
   // (if they are all sitting in a row) to insert something.
   while (true) {
     size_t home = get_home(tmp.hashcode, capacity);
-    const auto [status, offset] = this->get_wouldbe_offset(tmp.key, tmp.hashcode, home);
+    const auto [status, offset] = this->get_wouldbe_offset(tmp.key, tmp.hashcode, home, locked_buckets);
     switch (status) {
       case SearchStatus::found_match: {
         LOG_DEBUG("SearchStatus::found_match");
@@ -173,7 +179,7 @@ NaiveParallelRobinHoodHashTable::search(KeyType key) {
   HashCodeType hashcode = hash(key);
   size_t home = get_home(hashcode, this->capacity_);
 
-  const auto [status, offset] = this->get_wouldbe_offset(key, hashcode, home);
+  const auto [status, offset] = this->get_wouldbe_offset(key, hashcode, home, {});
   switch (status) {
     case SearchStatus::found_match: {
       size_t real_index = get_real_index(home, offset, this->capacity_);
@@ -182,10 +188,14 @@ NaiveParallelRobinHoodHashTable::search(KeyType key) {
       this->mutexes_[real_index].unlock();
       return v;
     }
-    case SearchStatus::found_hole:
     case SearchStatus::found_nohole:
-    case SearchStatus::found_swap:
       return std::nullopt;
+    case SearchStatus::found_hole:
+    case SearchStatus::found_swap: {
+      size_t real_index = get_real_index(home, offset, this->capacity_);
+      this->mutexes_[real_index].unlock();
+      return std::nullopt;
+    }
     default:
       assert(0 && "impossible");
   }
@@ -198,7 +208,7 @@ NaiveParallelRobinHoodHashTable::remove(KeyType key) {
   HashCodeType hashcode = hash(key);
   size_t home = get_home(hashcode, this->capacity_);
 
-  const auto [status, offset] = this->get_wouldbe_offset(key, hashcode, home);
+  const auto [status, offset] = this->get_wouldbe_offset(key, hashcode, home, {});
   switch (status) {
     case SearchStatus::found_match: {
       for (size_t i = 0; i < this->capacity_; ++i) {

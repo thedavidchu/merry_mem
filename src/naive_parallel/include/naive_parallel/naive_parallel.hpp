@@ -54,7 +54,12 @@ public:
   print();
 
   std::pair<SearchStatus, size_t>
-  get_wouldbe_offset(const KeyType key, const HashCodeType hashcode, const size_t home);
+  get_wouldbe_offset(
+    const KeyType key,
+    const HashCodeType hashcode,
+    const size_t home,
+    const std::vector<size_t> &locked_buckets
+  );
 
   /// @brief Insert <key, value> pair.
   ///
@@ -76,7 +81,7 @@ public:
   ErrorType
   remove(KeyType key);
 
-  std::vector<ValueType> 
+  std::vector<ValueType>
   getElements();
 
 private:

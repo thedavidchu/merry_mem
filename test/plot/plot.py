@@ -10,14 +10,14 @@ import matplotlib.pyplot as plt
 
 def run_performance_tests(
     modes: List[str] = ["random", "ordered"],
-    ratios: List[Tuple[int, int, int]] = [(10, 80, 10), (33, 33, 33), (50, 0, 50)],
+    ratios: List[Tuple[int, int, int]] = [(10, 80, 10), (33, 33, 33), (50, 0, 50), (1, 98, 1)],
     max_num_keys: int = 10000,
     goal_trace_length: int = 100000,
     version: int = 0,               # TODO Change this if you have multiple runs
 ):
     for m, r in itertools.product(modes, ratios):
         print(f"Running '{m}' mode with ratios {r} keys {max_num_keys} length {goal_trace_length}")
-        output_file = f"{m}-{r[0]}:{r[1]}:{r[2]}-n{max_num_keys}-t{goal_trace_length}-v{version}.json"
+        output_file = f"plots/{m}-{r[0]}:{r[1]}:{r[2]}-n{max_num_keys}-t{goal_trace_length}-v{version}.json"
         # Assumes we are in the root of the project
         # NOTE We cannot just pass this list in as the commands because for some
         #      reason, it is not read correctly so the specified values are not
@@ -36,7 +36,7 @@ def run_performance_tests(
 
     for m, r in itertools.product(modes, ratios):
         print(f"Plotting '{m}' mode with ratios {r} keys {max_num_keys} length {goal_trace_length}")
-        output_file = f"{m}-{r[0]}:{r[1]}:{r[2]}-n{max_num_keys}-t{goal_trace_length}-v{version}.json"
+        output_file = f"plots/{m}-{r[0]}:{r[1]}:{r[2]}-n{max_num_keys}-t{goal_trace_length}-v{version}.json"
         with open(output_file) as f:
             j = json.load(f)
         sequential_time = j["sequential"]
@@ -74,7 +74,7 @@ def plot_performance(
         f"with insert:search:remove ratio {insert_ratio}:{search_ratio}:{remove_ratio}",
         f"with {max_num_keys} keys and {goal_trace_length} operations",
     ])
-    save_title = f"{workload_name}-{insert_ratio}:{search_ratio}:{remove_ratio}-n{max_num_keys}-t{goal_trace_length}"
+    save_title = f"plots/{workload_name}-{insert_ratio}:{search_ratio}:{remove_ratio}-n{max_num_keys}-t{goal_trace_length}"
 
     # Set up the plot
     plt.figure()
