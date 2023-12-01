@@ -8,13 +8,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 bool
-SequentialBucket::is_empty() const {
+NaiveParallelBucket::is_empty() const {
   LOG_TRACE("Enter");
   return this->offset == SIZE_MAX;
 }
 
 void
-SequentialBucket::invalidate() {
+NaiveParallelBucket::invalidate() {
   LOG_TRACE("Enter");
   // Not necessary
   this->key = 0;
@@ -25,7 +25,7 @@ SequentialBucket::invalidate() {
 }
 
 bool
-SequentialBucket::equal_by_key(const KeyType key, const HashCodeType hashcode) const {
+NaiveParallelBucket::equal_by_key(const KeyType key, const HashCodeType hashcode) const {
   LOG_TRACE("Enter");
   assert(!this->is_empty() && "should not compare to empty bucket!");
   // Assume equality between hashcodes is simpler (because it is fixed for any
@@ -34,7 +34,7 @@ SequentialBucket::equal_by_key(const KeyType key, const HashCodeType hashcode) c
 }
 
 void
-SequentialBucket::print(const size_t capacity) const {
+NaiveParallelBucket::print(const size_t capacity) const {
   if (this->is_empty()) {
     std::cout << "(empty)";
   } else {
@@ -57,7 +57,7 @@ get_real_index(const size_t home, const size_t offset, const size_t capacity) {
 }
 
 std::pair<SearchStatus, size_t>
-get_wouldbe_offset(const std::vector<SequentialBucket> &buckets_buf,
+get_wouldbe_offset(const std::vector<NaiveParallelBucket> &buckets_buf,
                    const KeyType key,
                    const HashCodeType hashcode,
                    const size_t home) {
@@ -65,7 +65,7 @@ get_wouldbe_offset(const std::vector<SequentialBucket> &buckets_buf,
   size_t capacity = buckets_buf.size();
   for (size_t i = 0; i < capacity; ++i) {
     size_t real_index = get_real_index(home, i, capacity);
-    const SequentialBucket &bkt = buckets_buf[real_index];
+    const NaiveParallelBucket &bkt = buckets_buf[real_index];
     // If not found
     if (bkt.is_empty()) {
       // This is first, because equality on an empty bucket is not well defined.
@@ -81,12 +81,12 @@ get_wouldbe_offset(const std::vector<SequentialBucket> &buckets_buf,
 }
 
 ErrorType
-insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
+insert_without_resize(      std::vector<NaiveParallelBucket> &tmp_buckets,
                       const KeyType key,
                       const ValueType value,
                       const HashCodeType hashcode) {
   LOG_TRACE("Enter");
-  SequentialBucket tmp = {.key = key,
+  NaiveParallelBucket tmp = {.key = key,
                           .value = value,
                           .hashcode = hashcode,
                           .offset = /*arbitrary value*/0,};
@@ -101,7 +101,7 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
       case SearchStatus::found_match: {
         LOG_DEBUG("SearchStatus::found_match");
         size_t real_index = get_real_index(home, offset, capacity);
-        SequentialBucket &bkt = tmp_buckets[real_index];
+        NaiveParallelBucket &bkt = tmp_buckets[real_index];
         bkt.value = tmp.value;
         return ErrorType::ok;
       }
@@ -109,7 +109,7 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
         LOG_DEBUG("SearchStatus::found_swap");
         // NOTE(dchu): could be buggy
         size_t real_index = get_real_index(home, offset, capacity);
-        SequentialBucket &bkt = tmp_buckets[real_index];
+        NaiveParallelBucket &bkt = tmp_buckets[real_index];
         tmp.offset = offset;
         std::swap(bkt, tmp);
         continue;
@@ -118,7 +118,7 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
         LOG_DEBUG("SearchStatus::found_hole");
         // NOTE(dchu): could be buggy
         size_t real_index = get_real_index(home, offset, capacity);
-        SequentialBucket &bkt = tmp_buckets[real_index];
+        NaiveParallelBucket &bkt = tmp_buckets[real_index];
         tmp.offset = offset;
         std::swap(bkt, tmp);
         return ErrorType::ok;
@@ -138,12 +138,12 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
 ////////////////////////////////////////////////////////////////////////////////
 
 void
-SequentialRobinHoodHashTable::print() const {
+NaiveParallelRobinHoodHashTable::print() const {
   LOG_TRACE("Enter");
   std::cout << "(Length: " << this->length_ << "/Capacity: " << this->capacity_ << ") [\n";
   for (size_t i = 0; i < this->capacity_; ++i) {
     std::cout << "\t" << i << ": ";
-    const SequentialBucket &bkt = this->buckets_[i];
+    const NaiveParallelBucket &bkt = this->buckets_[i];
     bkt.print(this->capacity_);
     std::cout << ",\n";
   }
@@ -151,7 +151,7 @@ SequentialRobinHoodHashTable::print() const {
 }
 
 ErrorType
-SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
+NaiveParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
   LOG_TRACE("Enter");
   // TODO: ensure key and value are valid
   // 1. Error check arguments
@@ -199,7 +199,7 @@ SequentialRobinHoodHashTable::insert(KeyType key, ValueType value) {
 }
 
 std::optional<ValueType>
-SequentialRobinHoodHashTable::search(KeyType key) const {
+NaiveParallelRobinHoodHashTable::search(KeyType key) const {
   LOG_TRACE("Enter");
   HashCodeType hashcode = hash(key);
   size_t home = get_home(hashcode, this->capacity_);
@@ -208,7 +208,7 @@ SequentialRobinHoodHashTable::search(KeyType key) const {
   switch (status) {
     case SearchStatus::found_match: {
       size_t real_index = get_real_index(home, offset, this->capacity_);
-      const SequentialBucket &bkt = this->buckets_[real_index];
+      const NaiveParallelBucket &bkt = this->buckets_[real_index];
       return bkt.value;
     }
     case SearchStatus::found_hole:
@@ -222,7 +222,7 @@ SequentialRobinHoodHashTable::search(KeyType key) const {
 }
 
 ErrorType
-SequentialRobinHoodHashTable::remove(KeyType key) {
+NaiveParallelRobinHoodHashTable::remove(KeyType key) {
   LOG_TRACE("Enter");
   HashCodeType hashcode = hash(key);
   size_t home = get_home(hashcode, this->capacity_);
@@ -233,9 +233,9 @@ SequentialRobinHoodHashTable::remove(KeyType key) {
       for (size_t i = 0; i < this->capacity_; ++i) {
         // NOTE(dchu): real_index is the previous iteration's next_real_index
         size_t real_index = get_real_index(home, offset + i, this->capacity_);
-        SequentialBucket &bkt = this->buckets_[real_index];
+        NaiveParallelBucket &bkt = this->buckets_[real_index];
         size_t next_real_index = get_real_index(home, offset + i + 1, this->capacity_);
-        SequentialBucket &next_bkt = this->buckets_[next_real_index];
+        NaiveParallelBucket &next_bkt = this->buckets_[next_real_index];
         // Next element is empty or already in its home bucket
         if (next_bkt.is_empty() || next_bkt.offset == 0) {
           bkt.invalidate();
@@ -262,9 +262,9 @@ SequentialRobinHoodHashTable::remove(KeyType key) {
 }
 
 ErrorType
-SequentialRobinHoodHashTable::resize(size_t new_size) {
+NaiveParallelRobinHoodHashTable::resize(size_t new_size) {
   LOG_TRACE("Enter");
-  std::vector<SequentialBucket> tmp_bkts;
+  std::vector<NaiveParallelBucket> tmp_bkts;
   tmp_bkts.resize(new_size);
   assert(new_size >= this->length_ && "not enough room in new array!");
   for (auto &bkt : this->buckets_) {

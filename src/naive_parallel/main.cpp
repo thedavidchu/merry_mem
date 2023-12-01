@@ -1,12 +1,12 @@
 #include <iostream>
 #include <optional>
 
-#include "sequential/sequential.hpp"
+#include "naive_parallel/naive_parallel.hpp"
 
 
 int main() {
   LOG_TRACE("Enter");
-  SequentialRobinHoodHashTable a;
+  NaiveParallelRobinHoodHashTable a;
   // Insert
   for (uint64_t i = 0; i < 10; ++i) {
     ErrorType e = a.insert(i, i);

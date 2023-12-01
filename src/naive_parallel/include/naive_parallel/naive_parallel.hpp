@@ -17,7 +17,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 /// @brief  Bucket for the Robin Hood hash table.
-struct SequentialBucket {
+struct NaiveParallelBucket {
   KeyType key = 0;
   ValueType value = 0;
   HashCodeType hashcode = 0;
@@ -54,14 +54,14 @@ get_real_index(const size_t home, const size_t offset, const size_t capacity);
 /// @brief  Get offset from home or where it would be if not found.
 ///         Return SIZE_MAX if no hole is found.
 std::pair<SearchStatus, size_t>
-get_wouldbe_offset(const std::vector<SequentialBucket> &buckets_buf,
+get_wouldbe_offset(const std::vector<NaiveParallelBucket> &buckets_buf,
                    const KeyType key,
                    const HashCodeType hashcode,
                    const size_t home);
 
 /// @brief  Insert but assume no resize is necessary.
 ErrorType
-insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
+insert_without_resize(      std::vector<NaiveParallelBucket> &tmp_buckets,
                       const KeyType key,
                       const ValueType value,
                       const HashCodeType hashcode);
@@ -70,7 +70,7 @@ insert_without_resize(      std::vector<SequentialBucket> &tmp_buckets,
 /// HASH TABLE CLASS
 ////////////////////////////////////////////////////////////////////////////////
 
-class SequentialRobinHoodHashTable {
+class NaiveParallelRobinHoodHashTable {
 public:
   void
   print() const;
@@ -101,7 +101,7 @@ public:
 
 
 private:
-  std::vector<SequentialBucket> buckets_{1<<20};
+  std::vector<NaiveParallelBucket> buckets_{1<<20};
   size_t length_ = 0;
   size_t capacity_ = 1<<20;
 
