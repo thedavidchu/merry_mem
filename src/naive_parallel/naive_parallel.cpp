@@ -11,7 +11,7 @@
 bool
 NaiveParallelBucket::is_empty() const {
   LOG_TRACE("Enter");
-  return this->offset == UINT32_MAX;
+  return this->offset == SIZE_MAX;
 }
 
 void
@@ -22,7 +22,7 @@ NaiveParallelBucket::invalidate() {
   this->value = 0;
   this->hashcode = 0;
   // Necessary
-  this->offset = UINT32_MAX;
+  this->offset = SIZE_MAX;
 }
 
 bool
@@ -79,7 +79,7 @@ NaiveParallelRobinHoodHashTable::print() {
 
 #define UNLOCK_ALL(vec) for (auto idx : vec) { this->unlock_index(idx); }
 
-std::pair<SearchStatus, uint32_t>
+std::pair<SearchStatus, size_t>
 NaiveParallelRobinHoodHashTable::get_wouldbe_offset(
   const KeyType key,
   const HashCodeType hashcode,
@@ -88,7 +88,7 @@ NaiveParallelRobinHoodHashTable::get_wouldbe_offset(
 ) {
   LOG_TRACE("Enter");
   size_t capacity = this->buckets_.size();
-  for (uint32_t i = 0; i < capacity; ++i) {
+  for (size_t i = 0; i < capacity; ++i) {
     size_t real_index = get_real_index(home, i, capacity);
     if (std::find(locked_buckets.begin(), locked_buckets.end(), real_index) == locked_buckets.end()) {
       this->lock_index(real_index);

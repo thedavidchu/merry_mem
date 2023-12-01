@@ -1,251 +1,415 @@
-#include <algorithm>  // std::swap
-#include <cstdint>
-#include <optional>
-#include <tuple>
+#include <cassert>
 
 #include "parallel/parallel.hpp"
 
-////////////////////////////////////////////////////////////////////////////////
-/// HELPER CLASSES
-////////////////////////////////////////////////////////////////////////////////
-bool
-ParallelBucket::is_empty() const {
-  LOG_TRACE("Enter");
-  return this->offset == UINT32_MAX;
-}
+constexpr unsigned indices_per_segment = 16;
 
-void
-ParallelBucket::invalidate() {
-  LOG_TRACE("Enter");
-  // Not necessary
-  this->key = 0;
-  this->value = 0;
-  this->hashcode = 0;
-  // Necessary
-  this->offset = UINT32_MAX;
+////////////////////////////////////////////////////////////////////////////////
+/// SEGMENT LOCK
+////////////////////////////////////////////////////////////////////////////////
+
+SegmentLock::Version
+SegmentLock::get_version()
+{
+    return this->version_;
 }
 
 bool
-ParallelBucket::equal_by_key(const KeyType key, const HashCodeType hashcode) const {
-  LOG_TRACE("Enter");
-  assert(!this->is_empty() && "should not compare to empty bucket!");
-  // Assume equality between hashcodes is simpler (because it is fixed for any
-  // type of key)
-  return this->hashcode == hashcode && this->key == key;
+SegmentLock::is_locked()
+{
+    bool locked_by_me = this->mutex_.try_lock();
+    if (locked_by_me) {
+        this->mutex_.unlock();
+        return false;
+    }
+    return true;
 }
 
 void
-ParallelBucket::print(const size_t capacity) const {
-  if (this->is_empty()) {
-    std::cout << "(empty)";
-  } else {
-    std::cout << "(" << this->hashcode << "=>" << this->hashcode % capacity <<
-        "+" << this->offset << ") " << this->key << ": " << this->value;
-  }
+SegmentLock::lock()
+{
+    this->mutex_.lock();
+    ++this->version_;
+    ++this->locked_count_;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-/// STATIC HELPER FUNCTIONS
-////////////////////////////////////////////////////////////////////////////////
-
-/// @brief  Get real bucket index.
-static size_t
-get_real_index(const size_t home, const size_t offset, const size_t capacity) {
-  LOG_TRACE("Enter");
-  return (home + offset) % capacity;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-/// HASH TABLE CLASS
-////////////////////////////////////////////////////////////////////////////////
-
-/// NOTE: NOT THREAD SAFE!!!
 void
-ParallelRobinHoodHashTable::print() {
-  LOG_TRACE("Enter");
-  std::cout << "(Length: " << this->length_ << "/Capacity: " << this->capacity_ << ") [\n";
-  for (size_t i = 0; i < this->capacity_; ++i) {
-    std::cout << "\t" << i << ": ";
-    const ParallelBucket &bkt = this->get_bucket(i);
-    bkt.print(this->capacity_);
-    std::cout << ",\n";
-  }
-  std::cout << "]" << std::endl;
+SegmentLock::unlock()
+{
+    for (unsigned i = 0; i < this->locked_count_; ++i) {
+        this->mutex_.unlock();
+    }
+
+    this->locked_count_ = 0;
 }
 
-#define UNLOCK_ALL(vec) for (auto idx : vec) { this->unlock_index(idx); }
+////////////////////////////////////////////////////////////////////////////////
+/// THREAD MANAGER
+////////////////////////////////////////////////////////////////////////////////
 
-std::pair<SearchStatus, uint32_t>
-ParallelRobinHoodHashTable::get_wouldbe_offset(
-  const KeyType key,
-  const HashCodeType hashcode,
-  const size_t home,
-  const std::vector<size_t> &locked_buckets
-) {
-  LOG_TRACE("Enter");
-  size_t capacity = this->buckets_.size();
-  for (uint32_t i = 0; i < capacity; ++i) {
-    size_t real_index = get_real_index(home, i, capacity);
-    if (std::find(locked_buckets.begin(), locked_buckets.end(), real_index) == locked_buckets.end()) {
-      this->lock_index(real_index);
-    }
-    const ParallelBucket &bkt = this->get_bucket(real_index);
-    // If not found
-    if (bkt.is_empty()) {
-      // This is first, because equality on an empty bucket is not well defined.
-      return {SearchStatus::found_hole, i};
-    } else if (bkt.offset < i) { // This means that bkt belongs to a nearer home
-      return {SearchStatus::found_swap, i};
-    // If found
-    } else if (bkt.equal_by_key(key, hashcode)) {
-      return {SearchStatus::found_match, i};
-    }
-    this->unlock_index(real_index);
-  }
-  // If no hole found, then we hold no locks!
-  return {SearchStatus::found_nohole, SIZE_MAX};
+ThreadManager::ThreadManager(ParallelRobinHoodHashTable *const hash_table)
+    : hash_table_(hash_table)
+{
 }
 
-ErrorType
-ParallelRobinHoodHashTable::insert(KeyType key, ValueType value) {
-  LOG_TRACE("Enter");
-  // TODO: ensure key and value are valid
-  // 1. Error check arguments
-  // 2. Check if already present
-  // 3.   If not, check if room to insert
-  // 4.     If not, resize
-  // 5. Insert (with swapping if necessary)
-  HashCodeType hashcode = hash(key);
-  std::vector<size_t> locked_buckets;
-  ParallelBucket tmp = {.key = key,
-                          .value = value,
-                          .hashcode = hashcode,
-                          .offset = /*arbitrary value*/0,};
-  const size_t capacity = this->buckets_.size();
-  // This could also be upper-bounded by the number of valid elements (num_elem)
-  // in this->buckets_. This is because you need to bump at most num_elem elements
-  // (if they are all sitting in a row) to insert something.
-  while (true) {
-    size_t home = get_home(tmp.hashcode, capacity);
-    const auto [status, offset] = this->get_wouldbe_offset(tmp.key, tmp.hashcode, home, locked_buckets);
-    switch (status) {
-      case SearchStatus::found_match: {
-        LOG_DEBUG("SearchStatus::found_match");
-        size_t real_index = get_real_index(home, offset, capacity);
-        ParallelBucket &bkt = this->get_bucket(real_index);
-        bkt.value = tmp.value;
-        this->unlock_index(real_index);
-        UNLOCK_ALL(locked_buckets);
-        return ErrorType::ok;
-      }
-      case SearchStatus::found_swap: {
-        LOG_DEBUG("SearchStatus::found_swap");
-        // NOTE(dchu): could be buggy
-        size_t real_index = get_real_index(home, offset, capacity);
-        ParallelBucket &bkt = this->get_bucket(real_index);
-        tmp.offset = offset;
-        std::swap(bkt, tmp);
-        locked_buckets.push_back(real_index);
-        continue;
-      }
-      case SearchStatus::found_hole: {
-        LOG_DEBUG("SearchStatus::found_hole");
-        // NOTE(dchu): could be buggy
-        size_t real_index = get_real_index(home, offset, capacity);
-        ParallelBucket &bkt = this->get_bucket(real_index);
-        tmp.offset = offset;
-        std::swap(bkt, tmp);
-        this->unlock_index(real_index);
-        this->meta_mutex_.lock();
-        ++this->length_;
-        this->meta_mutex_.unlock();
-        UNLOCK_ALL(locked_buckets);
-        return ErrorType::ok;
-      }
-      case SearchStatus::found_nohole:
-        assert(0 && "should not call this function if we need to resize!");
-      default:
-        assert(0 && "impossible!");
-    }
-  }
-  assert(0 && "impossible!");
+void
+ThreadManager::lock(size_t index)
+{
+    size_t segment_index = get_segment_index(index);
+    this->hash_table_->segment_locks_[segment_index].lock();
+    this->locked_segments_.push_back(segment_index);
 }
 
-std::optional<ValueType>
-ParallelRobinHoodHashTable::search(KeyType key) {
-  LOG_TRACE("Enter");
-  HashCodeType hashcode = hash(key);
-  size_t home = get_home(hashcode, this->capacity_);
-
-  const auto [status, offset] = this->get_wouldbe_offset(key, hashcode, home, {});
-  switch (status) {
-    case SearchStatus::found_match: {
-      size_t real_index = get_real_index(home, offset, this->capacity_);
-      const ParallelBucket &bkt = this->get_bucket(real_index);
-      ValueType v = bkt.value;
-      this->unlock_index(real_index);
-      return v;
+void
+ThreadManager::release_all_locks()
+{
+    for (auto i : this->locked_segments_) {
+        this->hash_table_->segment_locks_[i].unlock();
     }
-    case SearchStatus::found_nohole:
-      return std::nullopt;
-    case SearchStatus::found_hole:
-    case SearchStatus::found_swap: {
-      size_t real_index = get_real_index(home, offset, this->capacity_);
-      this->unlock_index(real_index);
-      return std::nullopt;
-    }
-    default:
-      assert(0 && "impossible");
-  }
-  assert(0 && "unreachable");
+    this->locked_segments_.clear();
 }
 
-ErrorType
-ParallelRobinHoodHashTable::remove(KeyType key) {
-  LOG_TRACE("Enter");
-  HashCodeType hashcode = hash(key);
-  size_t home = get_home(hashcode, this->capacity_);
+bool
+ThreadManager::speculate_index(size_t index)
+{
+    size_t segment_index = get_segment_index(index);
+    SegmentLock &segment_lock = this->hash_table_->segment_locks_[segment_index];
+    // Perform the get_version() and then the is_locked() functions in that
+    // order to avoid a race condition. If the check for lockedness happens
+    // before the lock count check, then another thread could lock and increment
+    // the count before we capture the count check so that they are modifying
+    // the hash table while we are searching it but when they finish, we won't
+    // be able to tell!
+    // This Thread                      Other Thread
+    // -----------                      ------------
+    // 1. Check unlocked
+    //                                  1. Lock
+    //                                  2. Increment lock count
+    // 2. Get lock count
+    // 3. Search for key...             3. Modify hash table...
+    SegmentLock::Version segment_lock_version = segment_lock.get_version();
+    bool segment_locked = segment_lock.is_locked();
+    if (!segment_locked) {
+        this->segment_lock_index_and_version_.emplace_back(segment_index, segment_lock_version);
+        return true;
+    }
+    return false;
+}
 
-  const auto [status, offset] = this->get_wouldbe_offset(key, hashcode, home, {});
-  switch (status) {
-    case SearchStatus::found_match: {
-      for (size_t i = 0; i < this->capacity_; ++i) {
-        // NOTE(dchu): real_index is the previous iteration's next_real_index
-        size_t real_index = get_real_index(home, offset + i, this->capacity_);
-        ParallelBucket &bkt = this->get_bucket(real_index);
-        size_t next_real_index = get_real_index(home, offset + i + 1, this->capacity_);
-        ParallelBucket &next_bkt = this->get_bucket(next_real_index);
-        this->lock_index(next_real_index);
-        // Next element is empty or already in its home bucket
-        if (next_bkt.is_empty() || next_bkt.offset == 0) {
-          bkt.invalidate();
-          this->unlock_index(real_index);
-          this->unlock_index(next_real_index);
-          this->meta_mutex_.lock();
-          --this->length_;
-          this->meta_mutex_.unlock();
-          return ErrorType::ok;
+bool
+ThreadManager::finish_speculate()
+{
+    for (auto &[seg_idx, old_seg_version] : this->segment_lock_index_and_version_) {
+        SegmentLock::Version new_seg_version = this->hash_table_->segment_locks_[seg_idx].get_version();
+        if (old_seg_version != new_seg_version) {
+            this->segment_lock_index_and_version_.clear();
+            this->locked_segments_.clear();
+            return false;
         }
-        // I argue that this sliding is efficient if the average home has only a
-        // single element belonging to it. In this case, it would not have any
-        // elements belonging to the same home, over which it may leap-frog.
-        bkt = std::move(next_bkt);
-        --bkt.offset;
-        this->unlock_index(real_index);
-      }
-      assert(0 && "impossible! Should have a hole");
     }
-    // Not found
-    case SearchStatus::found_hole:
-    case SearchStatus::found_swap: {
-      size_t real_index = get_real_index(home, offset, this->capacity_);
-      this->unlock_index(real_index);
-      return ErrorType::e_notfound;
+    this->segment_lock_index_and_version_.clear();
+    this->locked_segments_.clear();
+    return true;
+}
+
+size_t
+get_segment_index(size_t index)
+{
+    return index / indices_per_segment;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+/// HASH TABLE
+////////////////////////////////////////////////////////////////////////////////
+
+bool
+ParallelRobinHoodHashTable::insert(KeyType key, ValueType value)
+{
+    HashCodeType hashcode = hash(key);
+    size_t home = get_home(hashcode, this->capacity_);
+    LOG_DEBUG(key << " hashes to " << home);
+
+    // Fast-path: try distance_zero_insert
+    const InsertStatus insert_status = this->distance_zero_insert(key, value, home);
+    if (insert_status == InsertStatus::inserted_at_home ||
+            insert_status == InsertStatus::updated_at_home) {
+        return true;
     }
-    case SearchStatus::found_nohole:
-      return ErrorType::e_notfound;
-    default:
-      assert(0 && "impossible");
-  }
-  assert(0 && "unreachable");
+
+    // TODO: (fast path) search with RH invariant to see if can atomically update
+    // Currently commented out because we need to handle the edge case when the
+    // fast-path update encounters a section of the table that is currently deleting
+    // and shifting over elements.
+
+    // size_t idx = home + 1;
+    // KeyValue new_kv = {.key=key, .value=value};
+    // for(size_t new_offset = 1; ; ++new_offset, ++idx){
+    //     KeyValue curr_kv = this->buckets_[idx].load();
+    //     size_t curr_offset = idx - hash(curr_kv.key);
+    //     if (curr_offset < new_offset){
+    //         break;
+    //     }
+    //     while(curr_kv.key == key) {
+    //         bool updated = this->compare_and_set_key_val(idx, curr_kv, new_kv);
+    //         if (updated == true) {
+    //             return true;
+    //         }
+    //     }
+    // }
+
+    // Slow path: locked insert
+    ThreadManager manager = this->get_thread_lock_manager();
+    KeyValue new_kv = {.key=key, .value=value};
+    ParallelBucket entry_to_insert(new_kv);
+    auto [next_index, found] = this->find_next_index_lock(manager, home, key);
+
+    // locked search + update
+    if (found) {
+        bool updated = this->compare_and_set_key_val(next_index, this->buckets_[next_index].load(), new_kv);
+        if (updated == true) {
+            manager.release_all_locks();
+            return true;
+        }
+    }
+
+    // Locked insert
+    bool inserted = this->locked_insert(entry_to_insert, next_index);
+    if (inserted == true) {
+        manager.release_all_locks();
+        return true;
+    }
+
+    manager.release_all_locks();
+    return false;
+}
+
+bool
+ParallelRobinHoodHashTable::remove(KeyType key)
+{
+    HashCodeType hashcode = hash(key);
+    size_t home = get_home(hashcode, this->capacity_);
+
+    // First, try fast path
+    const KeyValue expected = this->atomic_load_key_val(home);
+    const KeyValue right_neighbor = this->atomic_load_key_val(home+1);
+    bool validRight = right_neighbor.key == bucket_empty_key ||
+            home+1 == get_home(hash(right_neighbor.key), this->capacity_);
+    if (expected.key == key && validRight) {
+        KeyValue del_key = { .key = bucket_empty_key };
+        if (this->compare_and_set_key_val(home, expected, del_key)) {
+            return true;
+        }
+    }
+
+    // Now try slow path
+    ThreadManager manager = this->get_thread_lock_manager();
+    auto[index, found] = this->find_next_index_lock(manager, home, key);
+
+    if(!found) {
+        manager.release_all_locks();
+        return false;
+    }
+
+    size_t next_index = index++;
+    size_t curr_index = index;
+    manager.lock(next_index);
+
+    size_t next_offset = next_index - get_home(hash(atomic_load_key_val(next_index).key), this->capacity_);
+    KeyValue empty_entry = {.key=bucket_empty_key};
+
+    // Shift entries on the right of deleted entry to the left
+    while(next_offset > 0) {
+        manager.lock(next_index);
+        KeyValue entry_to_move = this->do_atomic_swap(empty_entry, next_index);
+        this->buckets_[curr_index].store(entry_to_move);
+        curr_index = next_index;
+        ++next_index;
+        next_offset = next_index - get_home(hash(atomic_load_key_val(next_index).key), this->capacity_);
+    }
+
+    this->buckets_[curr_index].store(empty_entry);
+    manager.release_all_locks();
+    return true;
+}
+
+std::pair<ValueType, bool>
+ParallelRobinHoodHashTable::find(KeyType key)
+{
+    // First, try fast path
+    HashCodeType hashcode = hash(key);
+    size_t home = get_home(hashcode, this->capacity_);
+    KeyValue zero_distance_key_pair = atomic_load_key_val(home);
+
+    if (zero_distance_key_pair.key == key) {
+        return {zero_distance_key_pair.key, true};
+    }
+    if (home == get_home(hash(zero_distance_key_pair.key), this->capacity_)) {
+        return {-1, false};
+    }
+
+    size_t tries = 0;
+    ValueType value = 0;
+    bool found = false;
+    bool speculative_success = false;
+    // NOTE We arbitrarily chose a max_tries of 10
+    constexpr size_t max_tries = 10;
+
+    while (tries < max_tries) {
+        tries++;
+        std::tie(value, found, speculative_success) = this->find_speculate(key, home);
+
+        if (speculative_success) {
+            return {value, found};
+        }
+    }
+
+    ThreadManager &manager = this->get_thread_lock_manager();
+    size_t index = 0;
+    std::tie(index, found) = this->find_next_index_lock(manager, home, key);
+    value = this->buckets_[index].load().value;
+    manager.release_all_locks();
+    return {value, found};
+}
+
+void
+ParallelRobinHoodHashTable::add_thread_lock_manager()
+{
+    std::thread::id t_id = std::this_thread::get_id();
+    assert(!this->thread_managers_.contains(t_id) &&
+           "thread manager for current thread already exists");
+    this->thread_managers_.emplace(t_id, ThreadManager(this));
+}
+
+void
+ParallelRobinHoodHashTable::remove_thread_lock_manager()
+{
+    std::thread::id t_id = std::this_thread::get_id();
+    assert(this->thread_managers_.contains(t_id) &&
+           "thread manager for current thread DNE");
+    this->thread_managers_.erase(t_id);
+}
+
+
+std::pair<size_t, bool>
+ParallelRobinHoodHashTable::find_next_index_lock(ThreadManager &manager,
+                                                 size_t start_index,
+                                                 KeyType key)
+{
+    LOG_TRACE("Enter");
+    const size_t capacity_with_buffer = this->capacity_with_buffer_;
+    for (size_t i = 0; i < capacity_with_buffer; ++i) {
+        const size_t real_index = start_index + i;
+        if (real_index == capacity_with_buffer)
+        {
+            assert("the map should never be completely full" && false);
+            return {SIZE_MAX, false};
+        }
+        manager.lock(real_index);
+
+        const KeyValue pair = this->atomic_load_key_val(real_index);
+
+        if (pair.key == bucket_empty_key) {
+            // This is first, because equality on an empty bucket is not well defined.
+            return {real_index, false};
+        } else if (pair.key == key) { // If found
+            return {real_index, true};
+        }
+    }
+
+    assert("the map should never be completely full" && false);
+    return {SIZE_MAX, false};
+}
+
+ThreadManager &
+ParallelRobinHoodHashTable::get_thread_lock_manager()
+{
+    std::thread::id t_id = std::this_thread::get_id();
+    assert(this->thread_managers_.contains(t_id) &&
+           "thread manager for current thread DNE");
+    return this->thread_managers_.at(t_id);
+}
+
+bool
+ParallelRobinHoodHashTable::compare_and_set_key_val(size_t index,
+                                                    KeyValue prev_kv,
+                                                    const KeyValue &new_kv)
+{
+    return this->buckets_[index].compare_exchange_strong(prev_kv, new_kv);
+}
+
+KeyValue
+ParallelRobinHoodHashTable::do_atomic_swap(const KeyValue &swap_entry, size_t index)
+{
+    return this->buckets_[index].exchange(swap_entry);
+}
+
+KeyValue
+ParallelRobinHoodHashTable::atomic_load_key_val(size_t index)
+{
+    return this->buckets_[index].load();
+}
+
+InsertStatus
+ParallelRobinHoodHashTable::distance_zero_insert(KeyType key,
+                                                 ValueType value,
+                                                 size_t dist_zero_slot)
+{
+    KeyValue blank_kv;
+    KeyValue new_kv = {key, value};
+    // Attempt fast-path insertion if the key-value pair is empty
+    if (this->buckets_[dist_zero_slot].load() == blank_kv) {
+        if (compare_and_set_key_val(dist_zero_slot, blank_kv, new_kv)) {
+            return InsertStatus::inserted_at_home;
+        };
+    }
+    // Attempt fast-path update if key matches our key
+    if (this->buckets_[dist_zero_slot].load().key == key) {
+        KeyValue old_kv = {key, this->buckets_[dist_zero_slot].load().value};
+        if (compare_and_set_key_val(dist_zero_slot, old_kv, new_kv)) {
+            return InsertStatus::updated_at_home;
+        };
+    }
+    return InsertStatus::not_inserted;
+}
+
+bool
+ParallelRobinHoodHashTable::locked_insert(ParallelBucket &entry_to_insert, size_t swap_index)
+{
+    KeyValue entry_to_swap = entry_to_insert;
+    ThreadManager manager = this->get_thread_lock_manager();
+    while(true) {
+        entry_to_swap = this->do_atomic_swap(entry_to_insert, swap_index);
+        if(entry_to_swap.key == bucket_empty_key) { //size max is empty
+            return true;
+        }
+        auto [next_swap_index, found] = this->find_next_index_lock(manager, swap_index, entry_to_swap.key);
+        swap_index = next_swap_index;
+    }
+}
+
+std::tuple<ValueType, bool, bool>
+ParallelRobinHoodHashTable::find_speculate(KeyType key, size_t start_index)
+{
+    bool speculative_success = false;
+    bool found = false;
+    ValueType value = 0;
+    size_t index = start_index;
+    ThreadManager manager = this->get_thread_lock_manager();
+
+    size_t offset = index - get_home(hash(atomic_load_key_val(index).key), this->capacity_);
+
+    for(size_t distance = 0; offset >= distance; ++distance){
+        (void)manager.speculate_index(index);
+        KeyValue current_bucket = atomic_load_key_val(index);
+        if(current_bucket.key == key){
+            value = current_bucket.value;
+            found = true;
+            break;
+        }
+        ++index;
+        offset = index - get_home(hash(atomic_load_key_val(index).key), this->capacity_);
+    }
+    speculative_success = manager.finish_speculate();
+    return std::make_tuple(value, found, speculative_success);
 }
