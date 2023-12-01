@@ -124,21 +124,16 @@ int main(int argc, char *argv[]) {
     }
     LOG_INFO("Finished generating traces");
 
-#if 0
     double seq_time_in_sec = run_sequential_performance_test(traces);
     LOG_INFO("Finished sequential test");
-#endif
 
     std::vector<double> parallel_time_in_sec;
-#if 0
     for (size_t w = 1; w <= 32; ++w) {
         double time = run_parallel_performance_test(traces, w);
         parallel_time_in_sec.push_back(time);
     }
-#endif
-    run_parallel_performance_test(traces, 16);
 
-    record_performance_test_times(args, 0, parallel_time_in_sec);
+    record_performance_test_times(args, seq_time_in_sec, parallel_time_in_sec);
 
     return 0;
 }
