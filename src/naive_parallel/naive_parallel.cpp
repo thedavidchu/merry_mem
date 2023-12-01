@@ -62,26 +62,6 @@ get_real_index(const size_t home, const size_t offset, const size_t capacity) {
 /// HASH TABLE CLASS
 ////////////////////////////////////////////////////////////////////////////////
 
-NaiveParallelBucket &
-NaiveParallelRobinHoodHashTable::get_bucket(const size_t index)
-{
-  std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
-  return std::get<0>(r);
-}
-
-void
-NaiveParallelRobinHoodHashTable::lock_index(const size_t index)
-{
-  std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
-  std::get<1>(r).lock();
-}
-
-void
-NaiveParallelRobinHoodHashTable::unlock_index(const size_t index)
-{
-  std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
-  std::get<1>(r).unlock();
-}
 /// NOTE: NOT THREAD SAFE!!!
 void
 NaiveParallelRobinHoodHashTable::print() {

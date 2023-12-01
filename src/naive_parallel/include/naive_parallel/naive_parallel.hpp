@@ -91,12 +91,24 @@ public:
 
 private:
   __attribute__((always_inline)) NaiveParallelBucket &
-  get_bucket(const size_t index);
+  get_bucket(const size_t index)
+  {
+    std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+    return std::get<0>(r);
+  }
 
   __attribute__((always_inline)) void
-  lock_index(const size_t index);
+  lock_index(const size_t index)
+  {
+    std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+    std::get<1>(r).lock();
+  }
 
   __attribute__((always_inline)) void
-  unlock_index(const size_t index);
+  unlock_index(const size_t index)
+  {
+    std::tuple<NaiveParallelBucket, std::mutex> &r = this->buckets_[index];
+    std::get<1>(r).unlock();
+  }
 };
 

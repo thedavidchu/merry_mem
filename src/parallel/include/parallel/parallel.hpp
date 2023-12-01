@@ -76,13 +76,25 @@ public:
 
 private:
   __attribute__((always_inline)) ParallelBucket &
-  get_bucket(const size_t index);
+  get_bucket(const size_t index)
+  {
+    std::tuple<ParallelBucket, std::mutex> &r = this->buckets_[index];
+    return std::get<0>(r);
+  }
 
   __attribute__((always_inline)) void
-  lock_index(const size_t index);
+  lock_index(const size_t index)
+  {
+    std::tuple<ParallelBucket, std::mutex> &r = this->buckets_[index];
+    std::get<1>(r).lock();
+  }
 
   __attribute__((always_inline)) void
-  unlock_index(const size_t index);
+  unlock_index(const size_t index)
+  {
+    std::tuple<ParallelBucket, std::mutex> &r = this->buckets_[index];
+    std::get<1>(r).unlock();
+  }
 
   std::pair<SearchStatus, uint32_t>
   get_wouldbe_offset(
