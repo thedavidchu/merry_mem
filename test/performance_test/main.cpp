@@ -46,7 +46,7 @@ run_sequential_performance_test(const std::vector<Trace> &traces)
     end_time = clock();
     double duration_in_seconds = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
     std::cout << "Time in sec: " << duration_in_seconds << std::endl;
-    return ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
+    return duration_in_seconds;
 }
 
 void
@@ -80,7 +80,7 @@ run_parallel_worker(ParallelRobinHoodHashTable &hash_table,
     }
 }
 
-void
+double
 run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num_workers)
 {
     clock_t start_time, end_time;
@@ -97,6 +97,7 @@ run_parallel_performance_test(const std::vector<Trace> &traces, const size_t num
     end_time = clock();
     double duration_in_seconds = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
     std::cout << "Time in sec: " << duration_in_seconds << std::endl;
+    return duration_in_seconds;
 }
 
 int main(int argc, char *argv[]) {

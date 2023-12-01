@@ -8,13 +8,13 @@ from typing import List, Tuple
 import matplotlib.pyplot as plt
 
 
-def run_performance_tests():
-    modes: List[str] = ["random", "ordered"]
-    ratios: List[Tuple[int, int, int]] = [(10, 80, 10), (33, 33, 33), (50, 0, 50)]
-    max_num_keys: int = 100
-    goal_trace_length: int = 1000
-    version: int = 0    # TODO Change this if you have multiple runs
-
+def run_performance_tests(
+    modes: List[str] = ["random", "ordered"],
+    ratios: List[Tuple[int, int, int]] = [(10, 80, 10), (33, 33, 33), (50, 0, 50)],
+    max_num_keys: int = 10000,
+    goal_trace_length: int = 100000,
+    version: int = 0,               # TODO Change this if you have multiple runs
+):
     for m, r in itertools.product(modes, ratios):
         print(f"Running '{m}' mode with ratios {r} keys {max_num_keys} length {goal_trace_length}")
         output_file = f"{m}-{r[0]}:{r[1]}:{r[2]}-n{max_num_keys}-t{goal_trace_length}-v{version}.json"

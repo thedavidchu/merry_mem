@@ -36,6 +36,7 @@ target_compile_options(parallel_exe
     PRIVATE
     ${MM_REQUIRED_WARN_FLAGS}
     ${MM_EXTRA_WARN_FLAGS}
+    -lpthread
 )
 
 if(UNIX)

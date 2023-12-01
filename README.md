@@ -85,11 +85,16 @@ tests, run:
 ./test/unit_test/unit_test_exe
 ```
 
-## Performance
+## Performance Test Plotting
 
-After building the performance test, run it:
+After building the performance test, plot the performance graphs with:
 
 ```bash
-#In the build directory
-./test/performance_test/performance_test_exe
+# In the project's root directory
+which python3
+python3 test/plot/plot.py
 ```
+
+This will create JSON files with the timing information and automatically
+plot the sequential versus the parallel implementations as the number of worker
+threads varies. These files will all appear in the project's root directory.

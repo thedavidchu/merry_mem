@@ -1,12 +1,12 @@
-#include "../../src/traces/traces.hpp"
+#include "trace/trace.hpp"
 #include <vector>
 #include <unordered_map>
 #include <iostream>
-#include "../../src/sequential/sequential.hpp"
-#include "../../src/parallel/parallel.hpp"
+#include "sequential/sequential.hpp"
+#include "parallel/parallel.hpp"
 #include <unordered_set>
 
-#include "../../src/common/types.hpp"
+#include "common/types.hpp"
 
 
 std::unordered_map<KeyType, ValueType> map;
@@ -98,7 +98,7 @@ main(int argc, char** argv)
             std::cout << "********SEQUENTIAL*******" << std::endl;
             std::cout << "Search failed for key " << element.first << std::endl;
             std::cout << "**************************" << std::endl;
-            bool equal = false;
+            equal = false;
         }
 
     }
@@ -106,16 +106,16 @@ main(int argc, char** argv)
     //check if all values in unordered map are in parallel hash table
     for (auto& element: map) 
     {
-        auto actual = parallel_hash_table.search(element.first);
+        auto actual = parallel_hash_table.find(element.first);
 
-        if(actual.value() != element.second) 
+        if(actual.first != element.second) 
         {
             std::cout << "**************************" << std::endl;
             std::cout << "********FAILURE**********" << std::endl;
             std::cout << "********PARALLEL*******" << std::endl;
             std::cout << "Search failed for key " << element.first << std::endl;
             std::cout << "**************************" << std::endl;
-            bool equal = false;
+            equal = false;
         }
 
     }
