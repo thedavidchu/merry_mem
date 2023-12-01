@@ -56,7 +56,17 @@ run_parallel_worker(NaiveParallelRobinHoodHashTable &hash_table,
 {
     size_t trace_size = traces.size();
 
-    for (size_t i = t_id; i < trace_size; i += num_workers) {
+    size_t traces_per_thread = trace_size / num_workers;
+    size_t traces_remaining = trace_size % num_workers;
+    size_t start_index = t_id * traces_per_thread;
+    size_t end_index = start_index + traces_per_thread;
+
+    if (t_id == num_workers - 1)
+    {
+        end_index += traces_remaining;
+    }
+
+    for (size_t i = start_index; i < end_index; ++i) {
         const Trace &t = traces[i];
         switch (t.op) {
         case TraceOperator::insert: {
@@ -114,16 +124,21 @@ int main(int argc, char *argv[]) {
     }
     LOG_INFO("Finished generating traces");
 
+#if 0
     double seq_time_in_sec = run_sequential_performance_test(traces);
     LOG_INFO("Finished sequential test");
+#endif
 
     std::vector<double> parallel_time_in_sec;
+#if 0
     for (size_t w = 1; w <= 32; ++w) {
         double time = run_parallel_performance_test(traces, w);
         parallel_time_in_sec.push_back(time);
     }
+#endif
+    run_parallel_performance_test(traces, 16);
 
-    record_performance_test_times(args, seq_time_in_sec, parallel_time_in_sec);
+    record_performance_test_times(args, 0, parallel_time_in_sec);
 
     return 0;
 }
