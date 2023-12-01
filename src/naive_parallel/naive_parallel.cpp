@@ -1,6 +1,6 @@
 #include <algorithm>  // std::swap
 
-#include "sequential/sequential.hpp"
+#include "naive_parallel/naive_parallel.hpp"
 
 
 ////////////////////////////////////////////////////////////////////////////////
