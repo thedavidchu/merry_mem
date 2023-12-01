@@ -1,5 +1,6 @@
 add_subdirectory(common)
-add_subdirectory(sequential)
+add_subdirectory(naive_parallel)
 add_subdirectory(parallel)
+add_subdirectory(sequential)
 add_subdirectory(trace)
 add_subdirectory(utility)
