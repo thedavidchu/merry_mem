@@ -26,7 +26,7 @@ struct NaiveParallelBucket {
   // A value of SIZE_MAX means that the bucket is empty. I do this hack so that
   // we can fit this bucket into 4 words, which is more amenable to the hardware.
   // A value of SIZE_MAX would be attrocious for performance anyways.
-  size_t offset = SIZE_MAX;
+  OffsetType offset = offset_invalid;
 
   bool
   is_empty() const;
@@ -58,7 +58,7 @@ public:
   void
   print();
 
-  std::pair<SearchStatus, size_t>
+  std::pair<SearchStatus, OffsetType>
   get_wouldbe_offset(
     const KeyType key,
     const HashCodeType hashcode,
