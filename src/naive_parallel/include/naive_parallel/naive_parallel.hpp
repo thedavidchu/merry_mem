@@ -6,6 +6,7 @@
 #include <mutex>
 #include <optional>
 #include <utility>
+#include <tuple>
 #include <vector>
 
 #include "common/logger.hpp"
@@ -53,6 +54,12 @@ public:
   void
   print();
 
+  void
+  lock_index(const size_t index);
+
+  void
+  unlock_index(const size_t index);
+
   std::pair<SearchStatus, size_t>
   get_wouldbe_offset(
     const KeyType key,
@@ -85,8 +92,7 @@ public:
   getElements();
 
 private:
-  std::vector<NaiveParallelBucket> buckets_{1<<20};
-  std::vector<std::mutex> mutexes_{1<<20};
+  std::vector<std::tuple<NaiveParallelBucket, std::mutex>> buckets_{1<<20};
   std::mutex meta_mutex_;
   size_t length_ = 0;
   size_t capacity_ = 1<<20;
